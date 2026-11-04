@@ -225,6 +225,9 @@ code, pre, kbd { font-family: var(--mono); }
 .cta { margin-top: 168px; background: var(--cta-bg); color: var(--cta-ink); border-radius: 18px; padding: clamp(32px, 5vw, 64px); display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 32px; align-items: end; }
 .cta h2 { margin: 0; font-weight: 800; font-stretch: 75%; font-size: clamp(44px, 5.6vw, 92px); line-height: 0.92; letter-spacing: -0.025em; }
 .cta p { margin: 0 0 22px; color: var(--cta-muted); font-size: 19px; }
+.cta { grid-template-columns: minmax(0, 1fr); justify-items: center; text-align: center; gap: 24px; }
+.cta p { max-width: 52ch; margin-left: auto; margin-right: auto; }
+.cta .actions { justify-content: center; }
 .cta .btn-code { background: var(--soft); color: var(--ink); }
 footer.site { padding-block: 96px 40px; }
 .footer-word { font-weight: 800; font-stretch: 125%; font-size: clamp(64px, 17vw, 270px); line-height: 0.8; letter-spacing: -0.05em; color: var(--ink); margin: 0; padding-bottom: 0.16em; text-align: center; }
