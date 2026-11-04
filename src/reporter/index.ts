@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { packageFile, readJson, VERSION, writeJson, writeText, type Paths } from '../core/paths.js';
+import { packageFile, VERSION, writeJson, writeText, type Paths } from '../core/paths.js';
 import type { ReportData, Stage, StageStatus } from '../core/report.js';
 import type { Analysis, GeneratedManifest, Plan, RunResults, TestResult } from '../core/types.js';
 
@@ -239,11 +239,3 @@ export function writeReport(a: Analysis, plan: Plan, manifest: GeneratedManifest
   return data;
 }
 
-export function loadSaved(p: Paths) {
-  return {
-    analysis: readJson<Analysis>(p.analysis),
-    plan: readJson<Plan>(p.plan),
-    manifest: readJson<GeneratedManifest>(p.generated),
-    results: readJson<RunResults>(join(p.results, 'results.json')),
-  };
-}
