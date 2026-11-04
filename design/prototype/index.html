@@ -34,7 +34,7 @@
 <div data-route="home">
   <header class="wrap bar">
     <a class="word" href="#home"><i aria-hidden="true"></i>repeval</a>
-    <nav aria-label="Main"><a href="#how">How it works</a><a href="#get">What you get</a><a href="#privacy">Privacy</a><a href="#faq">FAQ</a></nav>
+    <nav aria-label="Main"><a href="#demo">Demo</a><a href="#how">How it works</a><a href="#get">What you get</a><a href="#privacy">Privacy</a><a href="#faq">FAQ</a></nav>
     <div data-slot="theme"></div>
     <a class="btn btn-primary btn-sign" href="#signin"><svg><use href="#i-gh"/></svg><span>Sign in</span></a>
   </header>
@@ -63,6 +63,21 @@
           <div class="board-foot"><span id="heroSum"></span><a href="#report">See this report</a></div>
         </div>
       </div>
+    </section>
+
+    <section class="section" id="demo">
+      <div class="sec-head">
+        <h2>Watch a whole run in 20 seconds</h2>
+        <p>From pressing Run to the bug explained in plain words. This is the demo shop from the examples folder, on the same board you'll see in the app.</p>
+      </div>
+      <figure class="demo-video">
+        <video id="demoVideo" src="media/repeval-demo.mp4" poster="media/repeval-demo-poster.jpg" muted loop playsinline preload="metadata" aria-describedby="demoCap"></video>
+        <button class="demo-toggle" id="demoToggle" type="button" aria-controls="demoVideo">
+          <span class="ic" aria-hidden="true"><svg class="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg><svg class="i-pause" viewBox="0 0 24 24"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg></span>
+          <span id="demoLabel">Play</span>
+        </button>
+        <figcaption id="demoCap">A run of the demo shop: the board flips through each GitHub step, every page gets a screenshot, and the cart bug is explained. No sound.</figcaption>
+      </figure>
     </section>
 
     <section class="section" id="how">

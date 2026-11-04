@@ -390,6 +390,27 @@ describe("lib/products.js", () => {
     const next = btns[(i + (e.key === 'ArrowRight' ? 1 : btns.length - 1)) % btns.length]; selectTab(next.dataset.tabp); next.focus(); e.preventDefault();
   });
 
+  /* ---------- demo video: plays muted when visible, never on its own with reduced motion ---------- */
+  const video = $('#demoVideo'), vToggle = $('#demoToggle');
+  let userPaused = false;
+  const syncVideo = () => {
+    const playing = !video.paused;
+    vToggle.classList.toggle('playing', playing);
+    $('#demoLabel').textContent = playing ? 'Pause' : 'Play';
+    vToggle.setAttribute('aria-label', playing ? 'Pause the demo video' : 'Play the demo video');
+  };
+  video.addEventListener('play', syncVideo); video.addEventListener('pause', syncVideo);
+  vToggle.addEventListener('click', () => {
+    if (video.paused) { userPaused = false; video.play().catch(() => {}); } else { userPaused = true; video.pause(); }
+  });
+  if (!reduce && 'IntersectionObserver' in window) {
+    new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting && !userPaused) video.play().catch(() => {});
+      else if (!entry.isIntersecting) video.pause();
+    }, { threshold: 0.4 }).observe(video);
+  }
+  syncVideo();
+
   /* ---------- prototype menu ---------- */
   const protoBtn = $('#protoBtn'), protoMenu = $('#protoMenu');
   const setMenu = (open) => { protoMenu.classList.toggle('open', open); protoBtn.setAttribute('aria-expanded', String(open)); };
@@ -400,7 +421,7 @@ describe("lib/products.js", () => {
 
   /* ---------- router ---------- */
   const ROUTES = ['home', 'signin', 'repos', 'setup', 'start', 'live', 'report'];
-  const ANCHORS = ['how', 'get', 'privacy', 'ways', 'faq'];
+  const ANCHORS = ['demo', 'how', 'get', 'privacy', 'ways', 'faq'];
   let current = null;
   function route() {
     let name = location.hash.replace('#', '') || 'home';
