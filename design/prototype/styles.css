@@ -1,7 +1,7 @@
 /* Repeval prototype. World: a station departures board. The board is a physical object, so it stays dark in both themes;
    the page around it follows the viewer's theme (System by default, or Light / Dark from the switch). */
 :root {
-  --s-teal: #00bba7; --s-teal-hi: #2dd4bf; --s-teal-ink: #5eead4; --s-teal-deep: #134e4a; --s-teal-soft: rgba(0,187,167,.16);
+  --s-teal: #00bba7; --s-teal-hi: #2dd4bf; --logo-eval: #00bba7; --s-teal-ink: #5eead4; --s-teal-deep: #134e4a; --s-teal-soft: rgba(0,187,167,.16);
   /* page, light */
   --ground: #edf1f0; --surface: #ffffff; --surface-2: #f6f8f7; --soft: #e2e8e6; --soft-2: #d6dedb; --ink: #0d1615; --muted: #4a5956;
   --link: #0f766e; --bug: #c1271b; --bug-soft: #fbe3e0; --run: #9a5b07; --ok: #0f766e; --ok-soft: #d5f2ec;
@@ -22,7 +22,7 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-scheme="light"]):not([data-theme="light"]) {
     --ground: #0e1416; --surface: #141c1e; --surface-2: #11181a; --soft: #1b2427; --soft-2: #243034; --ink: #eef3f2; --muted: #9db0ad;
-    --link: #5eead4; --bug: #ff7a6e; --bug-soft: rgba(255,107,94,.14); --run: #f5b83d; --ok: #2dd4bf; --ok-soft: rgba(45,212,191,.14);
+    --link: #5eead4; --bug: #ff7a6e; --bug-soft: rgba(255,107,94,.14); --run: #f5b83d; --ok: #2dd4bf; --logo-eval: #2dd4bf; --ok-soft: rgba(45,212,191,.14);
     --shadow-pop: 0 12px 34px -10px rgba(0,0,0,.7), 0 2px 6px rgba(0,0,0,.4);
     --code-bg: #0a1011; --code-ink: #d6e2df; --code-bar: #121a1c; --code-btn: #1a2225; --code-cm: #7f9692; --code-kw: #5eead4; --code-st: #f5c97a; --code-g: #2dd4bf; --code-r: #ff7a6e; --code-y: #f5c97a; --code-p: #5eead4;
     --strip-bg: #070b0c; --strip-ink: #ffffff; --strip-muted: #c8d4d1; --img-outline: rgba(255,255,255,.1);
@@ -32,7 +32,7 @@
 }
 :root[data-scheme="dark"], :root[data-theme="dark"]:not([data-scheme="light"]) {
   --ground: #0e1416; --surface: #141c1e; --surface-2: #11181a; --soft: #1b2427; --soft-2: #243034; --ink: #eef3f2; --muted: #9db0ad;
-  --link: #5eead4; --bug: #ff7a6e; --bug-soft: rgba(255,107,94,.14); --run: #f5b83d; --ok: #2dd4bf; --ok-soft: rgba(45,212,191,.14);
+  --link: #5eead4; --bug: #ff7a6e; --bug-soft: rgba(255,107,94,.14); --run: #f5b83d; --ok: #2dd4bf; --logo-eval: #2dd4bf; --ok-soft: rgba(45,212,191,.14);
   --shadow-pop: 0 12px 34px -10px rgba(0,0,0,.7), 0 2px 6px rgba(0,0,0,.4);
     --code-bg: #0a1011; --code-ink: #d6e2df; --code-bar: #121a1c; --code-btn: #1a2225; --code-cm: #7f9692; --code-kw: #5eead4; --code-st: #f5c97a; --code-g: #2dd4bf; --code-r: #ff7a6e; --code-y: #f5c97a; --code-p: #5eead4;
     --strip-bg: #070b0c; --strip-ink: #ffffff; --strip-muted: #c8d4d1; --img-outline: rgba(255,255,255,.1);
@@ -91,12 +91,13 @@ code, pre, kbd { font-family: var(--mono); }
 /* ---------- top bars ---------- */
 .bar { display: flex; align-items: center; gap: 28px; height: 72px; }
 .word { display: flex; align-items: center; gap: 0.3em; font-weight: 800; font-stretch: 112%; font-size: 21px; letter-spacing: -0.02em; color: var(--ink); text-decoration: none; }
-.word .mark { width: 1.5em; height: 1.5em; margin: -0.2em 0 -0.12em; flex: none; display: block; }
+.word .emblem { width: 58px; height: 56px; flex: none; display: block; --emblem-line: 105; }
 .bar nav { display: flex; gap: 26px; margin-left: auto; }
 .bar nav a { color: var(--muted); text-decoration: none; font-size: 15px; font-weight: 500; transition: color 150ms ease; }
 .bar nav a:hover, .bar nav a[aria-current] { color: var(--ink); }
 .bar .btn { height: 40px; padding: 0 16px; font-size: 14px; }
 .app-bar { background: var(--surface); height: 64px; gap: 18px; }
+.app-bar .emblem { width: 46px; height: 44px; }
 .repo-pill { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 12px; border: 0; border-radius: 8px; background: var(--soft); font-weight: 600; font-size: 15px; cursor: pointer; }
 .repo-pill span { color: var(--muted); font-weight: 500; }
 .repo-pill svg { width: 14px; height: 14px; color: var(--muted); }
@@ -443,7 +444,7 @@ footer.site { padding-block: 96px 40px; }
   .gallery .pair { grid-template-columns: 1fr; }
   .hero h1 { font-size: clamp(48px, 15vw, 72px); }
   .app-bar { gap: 10px; }
-  .app-bar .word-text { display: none; }
+  .app-bar .emblem { width: 46px; height: 44px; }
 }
 @media (max-width: 360px) {
   .bar { gap: 8px; }
