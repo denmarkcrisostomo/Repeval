@@ -83,26 +83,6 @@
     });
   }
 
-  /* hero board: two real example runs */
-  const HERO = {
-    shop: { sum: '<b>10 passed</b> · 1 possible bug · 9 screenshots', rows: [['Collect', '3 source files', 'passed'], ['Understand', 'Express 5 pages', 'passed'], ['Plan', '9 of 13 targets', 'passed'], ['Make tests', '4 test files', 'passed'], ['Run', 'cart: error', 'bug'], ['Results', 'report ready', 'passed']] },
-    lib: { sum: '<b>22 passed</b> · 8 baselines recorded', rows: [['Collect', '4 source files', 'passed'], ['Understand', '10 functions', 'passed'], ['Plan', '10 of 10 targets', 'passed'], ['Make tests', '4 test files', 'passed'], ['Run', '22 of 22 passed', 'passed'], ['Results', 'report ready', 'passed']] },
-  };
-  const HW = [10, 15, 6];
-  const heroRows = makeBoard($('#heroRows'), HW, 6);
-  function playHero(key) {
-    const run = HERO[key]; $('#heroSum').innerHTML = run.sum;
-    heroRows.forEach((r, i) => {
-      const [step, detail, st] = run.rows[i]; r.row.className = 'row ' + st;
-      flipTo(r.groups[0], pad(step, HW[0]), i * 220);
-      flipTo(r.groups[1], pad(detail, HW[1]), i * 220 + 90);
-      flipTo(r.groups[2], pad(st === 'bug' ? 'bug' : 'passed', HW[2]), i * 220 + 200);
-    });
-  }
-  $$('[data-hero-repo]').forEach((b) => b.addEventListener('click', () => {
-    $$('[data-hero-repo]').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); playHero(b.dataset.heroRepo);
-  }));
-
   /* ---------- FAQ (accordion) ---------- */
   const FAQ = [
     ['Is it really free?', 'Yes. Repeval is open source under the MIT licence. On the website, runs use GitHub Actions in your own repo: free for public repos, and private repos use the minutes included with your GitHub plan.'],
@@ -421,7 +401,7 @@ describe("lib/products.js", () => {
 
   /* ---------- router ---------- */
   const ROUTES = ['home', 'signin', 'repos', 'setup', 'start', 'live', 'report'];
-  const ANCHORS = ['demo', 'how', 'get', 'privacy', 'ways', 'faq'];
+  const ANCHORS = ['how', 'get', 'privacy', 'ways', 'faq'];
   let current = null;
   function route() {
     let name = location.hash.replace('#', '') || 'home';
@@ -432,7 +412,6 @@ describe("lib/products.js", () => {
       $$('[data-route]').forEach((el) => (el.hidden = el.dataset.route !== name));
       if (!anchor) window.scrollTo(0, 0);
       current = name;
-      if (name === 'home') playHero($('[data-hero-repo][aria-pressed="true"]').dataset.heroRepo);
       if (name === 'live') startLive();
       if (name === 'report') requestAnimationFrame(() => selectTab($('.tabs [aria-selected="true"]').dataset.tabp, false));
       if (name === 'setup' && REPOS.find((r) => r.name === repo)?.wf) setRepo('portfolio-site');
