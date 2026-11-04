@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Repeval · Live run (transit map)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Overpass:wght@400..900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --s-teal: #00bba7; --s-teal-hi: #2dd4bf; --s-teal-deep: #134e4a; --s-teal-soft: rgba(0,187,167,.14);
+  --ground: #f7f9f8; --surface: #ffffff; --soft: #eef2f1; --ink: #0b1a19; --muted: #4f5f5c; --wait: #b9c4c1;
+  --bug: #d93025; --bug-soft: #fde8e6; --amber: #b7791f;
+  --font: "Overpass", "Helvetica Neue", Arial, sans-serif; --mono: "JetBrains Mono", ui-monospace, monospace;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1); --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+}
+* { box-sizing: border-box; }
+html { -webkit-font-smoothing: antialiased; }
+body { margin: 0; background: var(--ground); color: var(--ink); font: 15px/1.5 var(--font); }
+::selection { background: var(--s-teal); color: #fff; }
+button { font: inherit; color: inherit; }
+button:focus-visible, a:focus-visible { outline: 2px solid var(--s-teal); outline-offset: 2px; }
+.top { display: flex; align-items: center; gap: 20px; height: 60px; padding: 0 24px; background: var(--surface); box-shadow: 0 1px 0 #e3e9e7; }
+.word { font-weight: 900; font-size: 20px; letter-spacing: -0.02em; display: flex; align-items: center; gap: 9px; }
+.word i { width: 18px; height: 18px; border-radius: 50%; box-shadow: inset 0 0 0 4px var(--s-teal); display: block; }
+.repo { display: flex; align-items: center; gap: 8px; background: var(--soft); border: 0; border-radius: 8px; height: 36px; padding: 0 12px; font-weight: 700; cursor: pointer; }
+.repo span { color: var(--muted); font-weight: 500; }
+.repo svg { width: 14px; height: 14px; color: var(--muted); }
+.tabs { display: flex; gap: 4px; margin-left: 8px; }
+.tabs a { color: var(--muted); text-decoration: none; padding: 8px 12px; border-radius: 8px; font-weight: 700; font-size: 14px; }
+.tabs a[aria-current] { color: var(--ink); background: var(--soft); }
+.me { margin-left: auto; width: 32px; height: 32px; border-radius: 50%; background: var(--s-teal-deep); color: #fff; display: grid; place-items: center; font-weight: 800; font-size: 13px; }
+main { padding: 28px 24px 48px; max-width: 1440px; margin: 0 auto; }
+.head { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px 32px; }
+h1 { margin: 0; font-weight: 900; font-size: 38px; line-height: 1; letter-spacing: -0.03em; }
+.meta { color: var(--muted); margin-top: 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; }
+.clock { margin-left: auto; text-align: right; }
+.clock b { display: block; font-weight: 800; font-size: 38px; line-height: 1; font-variant-numeric: tabular-nums; }
+.clock span { color: var(--muted); font-size: 13px; }
+.pill { display: inline-flex; align-items: center; gap: 8px; height: 28px; padding: 0 12px; border-radius: 999px; font-weight: 700; font-size: 13px; background: var(--soft); }
+.pill i { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.pill.running i { background: var(--s-teal); animation: pulse 1.2s ease-in-out infinite; }
+.pill.bug { background: var(--bug-soft); color: var(--bug); } .pill.bug i { background: var(--bug); }
+@keyframes pulse { 50% { opacity: .3; } }
+.actions { display: flex; gap: 8px; }
+.btn { height: 38px; padding: 0 16px; border-radius: 999px; border: 0; font-weight: 700; cursor: pointer; background: var(--soft); transition: transform 160ms var(--ease-out), background-color 150ms ease; }
+.btn:hover { background: #e2e9e7; }
+.btn:active { transform: scale(0.96); }
+.btn-primary { background: var(--s-teal-deep); color: #fff; } .btn-primary:hover { background: var(--ink); }
+.btn[disabled] { opacity: .45; cursor: default; transform: none; }
+
+/* the line */
+.mapcard { margin-top: 24px; background: var(--surface); border-radius: 16px; padding: 30px 0 22px; overflow-x: auto; }
+.line { position: relative; min-width: 760px; height: 112px; margin: 0 72px; }
+.track { position: absolute; left: 0; right: 0; top: 28px; height: 12px; border-radius: 6px; background: #dfe7e5; }
+.track i { position: absolute; inset: 0; border-radius: 6px; background: var(--s-teal); transform-origin: left; transform: scaleX(0); transition: transform 700ms var(--ease-in-out); }
+.stop { position: absolute; top: 0; width: 160px; margin-left: -80px; text-align: center; }
+.dot { width: 34px; height: 34px; margin: 17px auto 0; border-radius: 50%; background: var(--surface); box-shadow: inset 0 0 0 6px var(--wait); transition: box-shadow 250ms ease; position: relative; }
+.stop.done .dot { box-shadow: inset 0 0 0 6px var(--ink); }
+.stop.now .dot { box-shadow: inset 0 0 0 6px var(--s-teal); }
+.stop.now .dot::after { content: ""; position: absolute; inset: -8px; border-radius: 50%; box-shadow: 0 0 0 3px var(--s-teal-soft); animation: ring 1.4s var(--ease-out) infinite; }
+.stop.bug .dot { box-shadow: inset 0 0 0 6px var(--bug); }
+@keyframes ring { from { transform: scale(0.8); opacity: 1; } to { transform: scale(1.35); opacity: 0; } }
+.stop b { display: block; margin-top: 10px; font-weight: 800; font-size: 17px; }
+.stop span { display: block; color: var(--muted); font-size: 13px; min-height: 20px; transition: opacity 200ms ease; }
+.stop.bug span { color: var(--bug); font-weight: 700; }
+.stop.waiting b { color: var(--muted); }
+.train { position: absolute; top: 22px; left: 0; width: 46px; height: 24px; margin-left: -23px; border-radius: 12px; background: var(--ink); transition: left 700ms var(--ease-in-out); box-shadow: 0 2px 6px rgba(11,26,25,.3); }
+.train::before, .train::after { content: ""; position: absolute; top: 8px; width: 8px; height: 8px; border-radius: 2px; background: var(--s-teal-hi); }
+.train::before { left: 8px; } .train::after { right: 8px; }
+
+.grid { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 5fr) minmax(0, 4fr); gap: 20px; margin-top: 20px; }
+.card { background: var(--surface); border-radius: 16px; padding: 18px 20px; min-width: 0; }
+.card h2 { margin: 0 0 10px; font-size: 13px; font-weight: 700; color: var(--muted); }
+.now-step { font-weight: 900; font-size: 26px; line-height: 1.1; letter-spacing: -0.02em; }
+.now-text { margin: 8px 0 0; font-size: 16px; transition: opacity 200ms ease, filter 200ms ease; }
+.swap { opacity: 0; filter: blur(2px); }
+.steps { list-style: none; margin: 18px 0 0; padding: 0; display: grid; gap: 2px; }
+.steps li { display: flex; align-items: center; gap: 10px; padding: 6px 0; font-size: 14px; }
+.steps li i { width: 10px; height: 10px; border-radius: 50%; background: var(--wait); flex: none; }
+.steps li.passed i { background: var(--s-teal); } .steps li.running i { background: var(--s-teal); animation: pulse 1.2s infinite; } .steps li.bug i { background: var(--bug); }
+.steps li.waiting { color: var(--muted); }
+.steps li em { margin-left: auto; font-style: normal; color: var(--muted); font-variant-numeric: tabular-nums; }
+.shots { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.shot { margin: 0; opacity: 0; transform: scale(0.96); transition: opacity 300ms var(--ease-out), transform 300ms var(--ease-out); }
+.shot.in { opacity: 1; transform: none; }
+.shot img { width: 100%; aspect-ratio: 16/9; object-fit: cover; object-position: top left; display: block; border-radius: 6px; outline: 1px solid rgba(0,0,0,.1); outline-offset: -1px; }
+.shot figcaption { display: flex; justify-content: space-between; font-size: 13px; margin-top: 5px; font-weight: 700; }
+.shot .bad { color: var(--bug); } .shot .ok { color: var(--s-teal-deep); }
+.empty { color: var(--muted); }
+.log { margin: 0; font: 12.5px/1.65 var(--mono); color: #33423f; white-space: pre-wrap; overflow-wrap: anywhere; min-height: 190px; }
+.log .x { color: var(--bug); } .log .v { color: var(--s-teal-deep); }
+.done-bar { display: none; flex-wrap: wrap; align-items: center; gap: 12px 28px; margin-top: 20px; padding: 18px 22px; border-radius: 16px; background: var(--ink); color: #fff; opacity: 0; transform: translateY(8px); transition: opacity 300ms var(--ease-out), transform 300ms var(--ease-out); }
+.done-bar.show { display: flex; opacity: 1; transform: none; }
+.done-bar b { font-size: 24px; font-variant-numeric: tabular-nums; display: block; line-height: 1.1; }
+.done-bar span { color: #b7c7c4; font-size: 13px; }
+.done-bar .ok b { color: var(--s-teal-hi); } .done-bar .bad b { color: #ff8a80; }
+.done-bar .btn { margin-left: auto; height: 46px; padding: 0 22px; background: var(--s-teal-hi); color: var(--ink); }
+@media (max-width: 1100px) { .grid { grid-template-columns: 1fr 1fr; } .grid .card:first-child { grid-column: 1 / -1; } }
+@media (max-width: 700px) { .grid { grid-template-columns: 1fr; } .tabs { display: none; } .mapcard { padding: 26px 20px 18px; } }
+@media (prefers-reduced-motion: reduce) { .train, .track i { transition: none; } .stop.now .dot::after, .pill.running i, .steps li.running i { animation: none; } .shot, .done-bar, .now-text { transform: none; filter: none; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <span class="word"><i aria-hidden="true"></i>repeval</span>
+  <button class="repo" type="button"><span>you /</span> demo-shop <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg></button>
+  <nav class="tabs"><a href="#" aria-current="page">Runs</a><a href="#">Report</a><a href="#">Setup</a></nav>
+  <span class="me" aria-label="Signed in">Y</span>
+</header>
+<main>
+  <div class="head">
+    <div>
+      <h1>Run on main</h1>
+      <div class="meta"><span>Started by you</span><span>AI off</span><span>All tests</span><span class="pill" id="pill"><i></i><span id="pillText">Queued</span></span></div>
+    </div>
+    <div class="actions"><button class="btn" id="replay" type="button">Replay run</button><button class="btn" id="cancel" type="button">Skip to end</button></div>
+    <div class="clock"><b id="clock">0:00</b><span>on GitHub Actions</span></div>
+  </div>
+  <div class="mapcard" data-ui>
+    <div class="line" id="line" aria-label="Run progress">
+      <div class="track"><i id="fill"></i></div>
+      <div class="train" id="train" aria-hidden="true"></div>
+    </div>
+  </div>
+  <div class="done-bar" id="done" aria-live="polite">
+    <div class="ok"><b>10</b><span>passed</span></div><div class="bad"><b>1</b><span>possible bug, on /cart</span></div><div><b>4</b><span>skipped</span></div><div><b>9</b><span>screenshots</span></div>
+    <button class="btn" type="button">Open the report</button>
+  </div>
+  <div class="grid">
+    <div class="card" aria-live="polite">
+      <h2 id="nowAt">Now at</h2>
+      <div class="now-step" id="nowStep">Waiting for a runner</div>
+      <p class="now-text" id="nowText">GitHub is finding a free machine for this run. This usually takes a few seconds.</p>
+      <ul class="steps" id="steps"></ul>
+    </div>
+    <div class="card"><h2>Screenshots</h2><div class="shots" id="shots"><p class="empty" id="shotsEmpty">Pages appear here as the browser opens them.</p></div></div>
+    <div class="card"><h2>Live output</h2><pre class="log" id="log"></pre></div>
+  </div>
+</main>
+<script src="live-sim.js"></script>
+<script>
+const { STEPS, create, fmt } = RepevalSim;
+const STOPS = ['Collect', 'Understand', 'Plan', 'Make tests', 'Run', 'Results'];
+const SUB = { Collect: 'demo-shop at 9f2c1ab', Understand: 'Express, 5 pages', Plan: '9 of 13 targets', 'Make tests': '4 test files', Run: '1 bug on /cart', Results: 'report ready' };
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const line = document.getElementById('line');
+const stopEls = STOPS.map((name, i) => {
+  const el = document.createElement('div'); el.className = 'stop waiting'; el.style.left = (i / (STOPS.length - 1)) * 100 + '%';
+  el.innerHTML = `<div class="dot"></div><b>${name}</b><span></span>`; line.appendChild(el); return el;
+});
+const stepsEl = document.getElementById('steps');
+const stepLis = STEPS.map((s) => { const li = document.createElement('li'); li.className = 'waiting'; li.innerHTML = `<i></i>${s.name}<em></em>`; stepsEl.appendChild(li); return li; });
+const shots = document.getElementById('shots'), log = document.getElementById('log');
+let lastIndex = -2, logged = 0, shown = new Set();
+function render(s) {
+  document.getElementById('clock').textContent = fmt(s.elapsed);
+  const pill = document.getElementById('pill');
+  pill.className = 'pill ' + (s.phase === 'queued' ? '' : s.phase === 'running' ? 'running' : 'bug');
+  document.getElementById('pillText').textContent = s.phase === 'queued' ? 'Queued' : s.phase === 'running' ? 'Running' : 'Finished · 1 possible bug';
+  document.getElementById('cancel').disabled = s.phase === 'done';
+  // station states from step states
+  const stopState = STOPS.map((stop) => {
+    const idx = STEPS.map((st, i) => (st.stop === stop ? i : -1)).filter((i) => i >= 0);
+    const states = idx.map((i) => s.steps[i]);
+    if (states.includes('running')) return 'now';
+    if (states.every((x) => x === 'passed')) return 'done';
+    if (states.includes('bug') && states.every((x) => x !== 'waiting')) return 'bug';
+    return 'waiting';
+  });
+  stopEls.forEach((el, i) => { el.className = 'stop ' + stopState[i]; el.querySelector('span').textContent = stopState[i] === 'done' || stopState[i] === 'bug' ? SUB[STOPS[i]] : ''; });
+  // train sits at the station of the running step (or the last one when done)
+  const cur = s.phase === 'done' ? STOPS.length - 1 : s.index >= 0 ? STOPS.indexOf(STEPS[s.index].stop) : 0;
+  const pct = (cur / (STOPS.length - 1)) * 100;
+  document.getElementById('train').style.left = pct + '%';
+  document.getElementById('fill').style.transform = `scaleX(${pct / 100})`;
+  stepLis.forEach((li, i) => {
+    li.className = s.steps[i];
+    let done = 0; for (let k = 0; k < i; k++) done += STEPS[k].dur;
+    const secs = s.steps[i] === 'running' ? s.elapsed - done : s.steps[i] === 'waiting' ? null : STEPS[i].dur;
+    li.querySelector('em').textContent = secs == null ? '' : Math.max(0, Math.round(secs)) + 's';
+  });
+  if (s.index !== lastIndex) {
+    lastIndex = s.index;
+    const step = STEPS[s.index]; const ns = document.getElementById('nowStep'), nt = document.getElementById('nowText');
+    const set = () => {
+      if (s.phase === 'done') { ns.textContent = 'Arrived at Results'; nt.textContent = 'Every page was opened and checked. One possible bug: the cart page throws "cartTotal is not defined" in the browser.'; }
+      else if (step) { ns.textContent = step.name; nt.textContent = step.explain; }
+      document.getElementById('nowAt').textContent = s.phase === 'done' ? 'Final stop' : step ? `Now at ${step.stop}` : 'Now at';
+      nt.classList.remove('swap');
+    };
+    if (reduce || s.phase === 'queued') set(); else { nt.classList.add('swap'); setTimeout(set, 150); }
+  }
+  const lines = [];
+  STEPS.forEach((step, i) => {
+    if (s.steps[i] === 'passed' || s.steps[i] === 'bug') lines.push(...step.log);
+    else if (s.steps[i] === 'running') lines.push(...step.log.slice(0, Math.ceil(step.log.length * s.progress)));
+  });
+  if (lines.length !== logged) { logged = lines.length; log.innerHTML = lines.slice(-10).map((l) => `<span class="${l.startsWith('✗') ? 'x' : l.startsWith('✓') ? 'v' : ''}">${l.replace(/</g, '&lt;')}</span>`).join('\n'); }
+  const test = STEPS.find((x) => x.id === 'test'); const ti = STEPS.indexOf(test);
+  test.shots.forEach((sh) => {
+    const due = s.index > ti || s.phase === 'done' || (s.index === ti && s.progress >= sh.at);
+    if (!due || shown.has(sh.src)) return;
+    shown.add(sh.src); document.getElementById('shotsEmpty')?.remove();
+    const f = document.createElement('figure'); f.className = 'shot';
+    f.innerHTML = `<img src="${sh.src}" alt="Screenshot of ${sh.route}"><figcaption><span>${sh.route}</span><span class="${sh.ok ? 'ok' : 'bad'}">${sh.ok ? 'passed' : 'possible bug'}</span></figcaption>`;
+    shots.appendChild(f); requestAnimationFrame(() => requestAnimationFrame(() => f.classList.add('in')));
+  });
+  document.getElementById('done').classList.toggle('show', s.phase === 'done');
+}
+const sim = create(render);
+function reset() { lastIndex = -2; logged = 0; shown = new Set(); shots.innerHTML = '<p class="empty" id="shotsEmpty">Pages appear here as the browser opens them.</p>'; }
+document.getElementById('replay').addEventListener('click', () => { reset(); sim.play(); });
+document.getElementById('cancel').addEventListener('click', () => sim.finish());
+if (location.search.includes('done')) sim.finish(); else sim.play();
+</script>
+</body>
+</html>
