@@ -162,11 +162,11 @@ code, pre, kbd { font-family: var(--mono); }
 .steps-list .see code { font-size: 13.5px; color: var(--ink); }
 
 .proof { display: grid; grid-template-columns: minmax(0, 8fr) minmax(0, 4fr); gap: 20px; margin-top: 48px; }
-.strip { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; background: var(--strip-bg); padding: 16px; border-radius: 14px; }
+.strip { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; background: var(--surface); padding: 22px; border-radius: 14px; }
 .frame { margin: 0; }
 .frame img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; object-position: top left; border-radius: 6px; outline: 1px solid var(--img-outline); outline-offset: -1px; }
-.frame figcaption { display: flex; justify-content: space-between; margin-top: 7px; font-size: 14px; color: var(--strip-muted); }
-.frame figcaption b { color: var(--strip-ink); font-weight: 600; }
+.frame figcaption { display: flex; justify-content: space-between; margin-top: 7px; font-size: 14px; color: var(--muted); }
+.frame figcaption b { color: var(--ink); font-weight: 600; }
 .ok-t { color: var(--ok); } .bug-t { color: var(--bug); }
 .bugcard { background: var(--surface); border-radius: 14px; padding: 22px; display: flex; flex-direction: column; gap: 14px; }
 .bugcard h3 { margin: 0; font-size: 22px; line-height: 1.2; }
