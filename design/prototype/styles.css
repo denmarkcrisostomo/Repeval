@@ -90,8 +90,8 @@ code, pre, kbd { font-family: var(--mono); }
 
 /* ---------- top bars ---------- */
 .bar { display: flex; align-items: center; gap: 28px; height: 72px; }
-.word { display: flex; align-items: center; gap: 0.38em; font-weight: 800; font-stretch: 112%; font-size: 21px; letter-spacing: -0.02em; color: var(--ink); text-decoration: none; }
-.word .mark { width: 1.2em; height: 1.2em; flex: none; display: block; }
+.word { display: flex; align-items: center; gap: 0.3em; font-weight: 800; font-stretch: 112%; font-size: 21px; letter-spacing: -0.02em; color: var(--ink); text-decoration: none; }
+.word .mark { width: 1.45em; height: 1.45em; margin: -0.12em 0; flex: none; display: block; }
 .bar nav { display: flex; gap: 26px; margin-left: auto; }
 .bar nav a { color: var(--muted); text-decoration: none; font-size: 15px; font-weight: 500; transition: color 150ms ease; }
 .bar nav a:hover, .bar nav a[aria-current] { color: var(--ink); }
