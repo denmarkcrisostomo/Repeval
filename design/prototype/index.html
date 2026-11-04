@@ -103,22 +103,16 @@
         <h2>Tests you can keep</h2>
         <p>Every test Repeval writes is a normal file. Download the ones you like and commit them, and they keep checking your app on every change.</p>
       </div>
-      <div class="privacy">
-        <div class="perm">
-          <div class="yes"><h3>What it writes for the demo shop</h3><ul>
-            <li><svg><use href="#i-yes"/></svg><span><b>pages.spec.ts</b>: every page loads, shows content and has no browser errors</span></li>
-            <li><svg><use href="#i-yes"/></svg><span><b>api.spec.ts</b>: every simple GET endpoint answers without a server error</span></li>
-            <li><svg><use href="#i-yes"/></svg><span><b>2 unit test files</b>: your functions exist, and what they return is recorded so later changes stand out</span></li></ul></div>
-          <div class="yes"><h3>How to keep them</h3><ul>
-            <li><svg><use href="#i-yes"/></svg><span>Open the report's "Tests to keep" tab and download them</span></li>
-            <li><svg><use href="#i-yes"/></svg><span>Copy the ones you like into your repo and commit them</span></li>
-            <li><svg><use href="#i-yes"/></svg><span>Delete any file you don't want. Nothing else depends on it</span></li></ul></div>
-        </div>
-        <div class="yaml-wrap">
-          <div class="editor" data-ui>
-            <div class="term-bar"><span>tests/e2e/pages.spec.ts</span><span>Playwright</span></div>
-<pre class="codebox"><span class="kw">test</span>(<span class="st">"page /cart loads"</span>, <span class="kw">async</span> ({ page }) =&gt; {
-  <span class="kw">const</span> { response, errors, screenshot } = <span class="kw">await</span> openPage(page, <span class="st">"/cart"</span>, <span class="st">"cart"</span>);
+      <div class="specs">
+        <div class="editor" data-ui>
+          <div class="term-bar"><span>tests/e2e/pages.spec.ts</span><span>Playwright · pages</span></div>
+<pre class="codebox"><span class="cm">// Smoke test for every page: it loads, shows content, has no browser errors.</span>
+<span class="kw">import</span> { expect, test } <span class="kw">from</span> <span class="st">'@playwright/test'</span>;
+<span class="kw">import</span> { openPage } <span class="kw">from</span> <span class="st">'./_repeval'</span>;
+
+<span class="kw">test</span>(<span class="st">"page /cart loads"</span>, <span class="kw">async</span> ({ page }) =&gt; {
+  <span class="kw">const</span> { response, errors, screenshot } =
+    <span class="kw">await</span> openPage(page, <span class="st">"/cart"</span>, <span class="st">"cart"</span>);
   <span class="kw">await</span> screenshot(<span class="st">'desktop'</span>);
   <span class="kw">await</span> page.setViewportSize({ width: 390, height: 844 });
   <span class="kw">await</span> screenshot(<span class="st">'mobile'</span>);
@@ -126,10 +120,26 @@
   expect(response?.status() ?? 0, <span class="st">'HTTP status'</span>).toBeLessThan(400);
   expect(errors, <span class="st">'browser errors on this page'</span>).toEqual([]);
 });</pre>
-          </div>
-          <div class="yaml-note"><span class="status ok">Plain Playwright and Vitest</span><span class="status ok">Readable, commented code</span><span class="status ok">Keep or delete any file</span></div>
+        </div>
+        <div class="editor" data-ui>
+          <div class="term-bar"><span>tests/e2e/api.spec.ts</span><span>Playwright · API</span></div>
+<pre class="codebox"><span class="cm">// Checks that each simple GET endpoint answers without a server error.</span>
+<span class="kw">import</span> { expect, test } <span class="kw">from</span> <span class="st">'@playwright/test'</span>;
+
+<span class="kw">test</span>(<span class="st">"GET /api/products responds"</span>, <span class="kw">async</span> ({ request }) =&gt; {
+  <span class="kw">const</span> res = <span class="kw">await</span> request.get(<span class="st">"/api/products"</span>);
+  expect(res.status(), <span class="st">'HTTP status (5xx means the server failed)'</span>)
+    .toBeLessThan(500);
+});
+
+<span class="kw">test</span>(<span class="st">"GET /api/health responds"</span>, <span class="kw">async</span> ({ request }) =&gt; {
+  <span class="kw">const</span> res = <span class="kw">await</span> request.get(<span class="st">"/api/health"</span>);
+  expect(res.status(), <span class="st">'HTTP status (5xx means the server failed)'</span>)
+    .toBeLessThan(500);
+});</pre>
         </div>
       </div>
+      <div class="yaml-note keep-notes"><span class="status ok">Plain Playwright and Vitest files</span><span class="status ok">Readable, commented code</span><span class="status ok">Keep or delete any file</span></div>
     </section>
 
     <section class="section" id="privacy">

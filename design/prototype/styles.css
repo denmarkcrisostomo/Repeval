@@ -238,6 +238,10 @@ footer.site { padding-block: 96px 40px; }
 .editor .codebox { border-radius: 0; flex: 1; height: auto !important; }
 @media (min-width: 1001px) { .privacy .yaml-wrap .editor { height: 100%; } }
 
+.specs { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; margin-top: 48px; align-items: stretch; }
+.keep-notes { margin-top: 12px; }
+@media (max-width: 1000px) { .specs { grid-template-columns: minmax(0, 1fr); } }
+
 /* demo video */
 .demo-video { position: relative; margin: 48px 0 0; }
 .hero-video { margin: 0; }
