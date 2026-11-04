@@ -121,9 +121,9 @@ code, pre, kbd { font-family: var(--mono); }
 .board-foot a { color: var(--s-teal-ink); }
 
 /* ---------- landing ---------- */
-.hero { padding: 40px 0 0; }
-.hero h1 { margin: 0; font-weight: 800; font-stretch: 75%; font-size: clamp(56px, 8.6vw, 140px); line-height: 0.9; letter-spacing: -0.03em; max-width: 13ch; }
-.hero-grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 48px; align-items: start; margin-top: 40px; }
+.hero { padding: 48px 0 0; }
+.hero h1 { margin: 0 0 28px; font-weight: 800; font-stretch: 75%; font-size: clamp(56px, 6.4vw, 104px); line-height: 0.9; letter-spacing: -0.03em; }
+.hero-grid { display: grid; grid-template-columns: minmax(0, 6fr) minmax(0, 6fr); gap: 56px; align-items: center; }
 .lede { margin: 0; font-size: 20px; max-width: 34ch; }
 .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
 .facts { display: flex; flex-wrap: wrap; gap: 8px 22px; margin: 22px 0 0; padding: 0; list-style: none; font-size: 15px; color: var(--muted); }
