@@ -1,0 +1,46 @@
+// Shapes the pages work with. GitHub data is reduced to these on the server, so only
+// what a page shows ever reaches the browser.
+
+export interface Repo {
+  owner: string;
+  name: string;
+  private: boolean;
+  defaultBranch: string;
+  pushedAt: string | null;
+  /** Whether .github/workflows/repeval.yml exists. Only filled in where a page needs it. */
+  hasWorkflow?: boolean;
+}
+
+export type StepState = 'waiting' | 'running' | 'passed' | 'failed' | 'skipped';
+
+export interface RunStep {
+  key: string;
+  name: string;
+  state: StepState;
+  /** Seconds the step took, once it has finished. */
+  seconds?: number;
+}
+
+export type RunPhase = 'queued' | 'running' | 'done';
+
+export interface RunSummary {
+  id: string;
+  phase: RunPhase;
+  /** GitHub's conclusion once done: success, failure, cancelled, timed_out… */
+  conclusion: string | null;
+  branch: string;
+  createdAt: string;
+  startedAt: string | null;
+  updatedAt: string;
+  actor: string;
+  htmlUrl: string | null;
+}
+
+export interface RunStatus extends RunSummary {
+  steps: RunStep[];
+  /** True when the repeval-report artifact exists and has not expired. */
+  hasReport: boolean;
+}
+
+export const TEST_CHOICES = ['all', 'unit', 'e2e'] as const;
+export type TestChoice = (typeof TEST_CHOICES)[number];

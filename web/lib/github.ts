@@ -1,0 +1,248 @@
+import 'server-only';
+import { findStep } from './steps';
+import type { Repo, RunPhase, RunStatus, RunStep, RunSummary, StepState, TestChoice } from './types';
+import { ARTIFACT_NAME, WORKFLOW_FILE } from './workflow';
+
+// Thin GitHub REST client. Runs on the server only, with the signed-in user's own token.
+// The GitHub App behind that token has Actions (read/write) and Metadata (read) permissions
+// and no Contents permission, so none of these calls can read the repo's code.
+
+const API = 'https://api.github.com';
+
+export class GitHubError extends Error {
+  constructor(public status: number, message: string) {
+    super(message);
+  }
+}
+
+async function call(token: string, path: string, init: RequestInit = {}): Promise<Response> {
+  const res = await fetch(path.startsWith('http') ? path : API + path, {
+    ...init,
+    cache: 'no-store',
+    headers: {
+      Accept: 'application/vnd.github+json',
+      Authorization: `Bearer ${token}`,
+      'X-GitHub-Api-Version': '2022-11-28',
+      'User-Agent': 'repeval-web',
+      ...(init.body ? { 'Content-Type': 'application/json' } : {}),
+      ...init.headers,
+    },
+  });
+  return res;
+}
+
+async function json<T>(token: string, path: string, init?: RequestInit): Promise<T> {
+  const res = await call(token, path, init);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}) as { message?: string });
+    throw new GitHubError(res.status, (body as { message?: string }).message ?? res.statusText);
+  }
+  return (res.status === 204 ? undefined : await res.json()) as T;
+}
+
+const repoPath = (owner: string, repo: string) => `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
+
+/* ---------- repos ---------- */
+
+interface GhRepo {
+  name: string;
+  owner: { login: string };
+  private: boolean;
+  default_branch: string;
+  pushed_at: string | null;
+}
+const toRepo = (r: GhRepo): Repo => ({
+  owner: r.owner.login,
+  name: r.name,
+  private: r.private,
+  defaultBranch: r.default_branch,
+  pushedAt: r.pushed_at,
+});
+
+/** Repos the user allowed the Repeval app to see, across every account where it is installed. */
+export async function listRepos(token: string): Promise<Repo[]> {
+  const { installations } = await json<{ installations: { id: number }[] }>(token, '/user/installations?per_page=100');
+  const all: Repo[] = [];
+  for (const inst of installations) {
+    for (let page = 1; page <= 5; page++) {
+      const data = await json<{ repositories: GhRepo[]; total_count: number }>(
+        token,
+        `/user/installations/${inst.id}/repositories?per_page=100&page=${page}`,
+      );
+      all.push(...data.repositories.map(toRepo));
+      if (all.length >= data.total_count || data.repositories.length < 100) break;
+    }
+  }
+  return all.sort((a, b) => (b.pushedAt ?? '').localeCompare(a.pushedAt ?? ''));
+}
+
+export async function getRepo(token: string, owner: string, repo: string): Promise<Repo> {
+  const r = toRepo(await json<GhRepo>(token, repoPath(owner, repo)));
+  r.hasWorkflow = await hasWorkflow(token, owner, repo);
+  return r;
+}
+
+/** Looks the workflow up through the Actions API, which needs no access to the repo's files. */
+export async function hasWorkflow(token: string, owner: string, repo: string): Promise<boolean> {
+  const res = await call(token, `${repoPath(owner, repo)}/actions/workflows/${WORKFLOW_FILE}`);
+  if (res.status === 404) return false;
+  if (!res.ok) throw new GitHubError(res.status, res.statusText);
+  return true;
+}
+
+/* ---------- runs ---------- */
+
+interface GhRun {
+  id: number;
+  status: string;
+  conclusion: string | null;
+  head_branch: string;
+  created_at: string;
+  run_started_at: string | null;
+  updated_at: string;
+  actor: { login: string } | null;
+  html_url: string;
+}
+
+const phaseOf = (status: string): RunPhase =>
+  status === 'completed' ? 'done' : status === 'in_progress' ? 'running' : 'queued';
+
+const toSummary = (r: GhRun): RunSummary => ({
+  id: String(r.id),
+  phase: phaseOf(r.status),
+  conclusion: r.conclusion,
+  branch: r.head_branch,
+  createdAt: r.created_at,
+  startedAt: r.run_started_at,
+  updatedAt: r.updated_at,
+  actor: r.actor?.login ?? 'someone',
+  htmlUrl: r.html_url,
+});
+
+export async function listRuns(token: string, owner: string, repo: string): Promise<RunSummary[]> {
+  const res = await call(token, `${repoPath(owner, repo)}/actions/workflows/${WORKFLOW_FILE}/runs?per_page=10`);
+  if (res.status === 404) return [];
+  if (!res.ok) throw new GitHubError(res.status, res.statusText);
+  const { workflow_runs } = (await res.json()) as { workflow_runs: GhRun[] };
+  return workflow_runs.map(toSummary);
+}
+
+/**
+ * Starts the workflow on the repo's default branch and returns the new run's id.
+ * GitHub can return the run id directly; if it doesn't, the newest run this user started is used.
+ */
+export async function startRun(
+  token: string,
+  owner: string,
+  repo: string,
+  branch: string,
+  tests: TestChoice,
+  login: string,
+): Promise<string> {
+  const since = Date.now();
+  const res = await call(token, `${repoPath(owner, repo)}/actions/workflows/${WORKFLOW_FILE}/dispatches`, {
+    method: 'POST',
+    body: JSON.stringify({ ref: branch, inputs: { ai: 'none', tests }, return_run_details: true }),
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { message?: string };
+    throw new GitHubError(res.status, body.message ?? res.statusText);
+  }
+  if (res.status === 200) {
+    const body = (await res.json().catch(() => ({}))) as { workflow_run_id?: number };
+    if (body.workflow_run_id) return String(body.workflow_run_id);
+  }
+  // Older behaviour: 204 with no body. The run shows up in the list within a few seconds.
+  for (let attempt = 0; attempt < 8; attempt++) {
+    await new Promise((r) => setTimeout(r, 1500));
+    const runs = await json<{ workflow_runs: GhRun[] }>(
+      token,
+      `${repoPath(owner, repo)}/actions/workflows/${WORKFLOW_FILE}/runs?event=workflow_dispatch&actor=${encodeURIComponent(login)}&per_page=5`,
+    );
+    const fresh = runs.workflow_runs.find((r) => new Date(r.created_at).getTime() >= since - 30_000);
+    if (fresh) return String(fresh.id);
+  }
+  throw new GitHubError(504, 'The run was started, but GitHub has not listed it yet. Open the repo again in a moment.');
+}
+
+interface GhStep {
+  name: string;
+  status: string;
+  conclusion: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+}
+
+function stepState(s: GhStep): StepState {
+  if (s.status !== 'completed') return s.status === 'in_progress' ? 'running' : 'waiting';
+  if (s.conclusion === 'success') return 'passed';
+  if (s.conclusion === 'skipped') return 'skipped';
+  return 'failed';
+}
+
+export async function getRunStatus(token: string, owner: string, repo: string, runId: string): Promise<RunStatus> {
+  const base = repoPath(owner, repo);
+  const run = await json<GhRun>(token, `${base}/actions/runs/${runId}`);
+  const { jobs } = await json<{ jobs: { steps?: GhStep[] }[] }>(token, `${base}/actions/runs/${runId}/jobs?per_page=10`);
+  const ghSteps = jobs[0]?.steps ?? [];
+  const steps: RunStep[] = [];
+  for (const s of ghSteps) {
+    const info = findStep(s.name);
+    if (!info) continue; // GitHub's own setup and cleanup steps
+    const seconds =
+      s.started_at && s.completed_at ? Math.max(0, Math.round((Date.parse(s.completed_at) - Date.parse(s.started_at)) / 1000)) : undefined;
+    steps.push({ key: info.key, name: info.name, state: stepState(s), seconds });
+  }
+  const summary = toSummary(run);
+  let hasReport = false;
+  if (summary.phase === 'done') hasReport = (await findReportArtifact(token, owner, repo, runId)) !== null;
+  return { ...summary, steps, hasReport };
+}
+
+/* ---------- the report artifact ---------- */
+
+interface GhArtifact {
+  id: number;
+  name: string;
+  expired: boolean;
+  size_in_bytes: number;
+  archive_download_url: string;
+}
+
+async function findReportArtifact(token: string, owner: string, repo: string, runId: string): Promise<GhArtifact | null> {
+  const { artifacts } = await json<{ artifacts: GhArtifact[] }>(
+    token,
+    `${repoPath(owner, repo)}/actions/runs/${runId}/artifacts?per_page=20`,
+  );
+  return artifacts.find((a) => a.name === ARTIFACT_NAME && !a.expired) ?? null;
+}
+
+/**
+ * Fetches the report zip from GitHub and hands back the response to stream straight to the browser.
+ * Nothing is written anywhere on the way through.
+ */
+export async function fetchReportZip(token: string, owner: string, repo: string, runId: string): Promise<Response | null> {
+  const artifact = await findReportArtifact(token, owner, repo, runId);
+  if (!artifact) return null;
+  // GitHub answers with a redirect to a short-lived signed URL; fetch follows it without the token.
+  const res = await call(token, artifact.archive_download_url, { redirect: 'follow' });
+  if (!res.ok || !res.body) throw new GitHubError(res.status, 'Could not download the report from GitHub.');
+  return res;
+}
+
+/** Revokes the user's token when they sign out, so it stops working right away. */
+export async function revokeToken(token: string): Promise<void> {
+  const id = process.env.AUTH_GITHUB_ID;
+  const secret = process.env.AUTH_GITHUB_SECRET;
+  if (!id || !secret) return;
+  await fetch(`${API}/applications/${encodeURIComponent(id)}/token`, {
+    method: 'DELETE',
+    headers: {
+      Accept: 'application/vnd.github+json',
+      Authorization: `Basic ${Buffer.from(`${id}:${secret}`).toString('base64')}`,
+      'Content-Type': 'application/json',
+      'User-Agent': 'repeval-web',
+    },
+    body: JSON.stringify({ access_token: token }),
+  }).catch(() => undefined);
+}

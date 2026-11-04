@@ -1,0 +1,28 @@
+{
+  "name": "repeval-web",
+  "private": true,
+  "version": "0.1.0",
+  "description": "The Repeval website: starts runs in the user's own GitHub Actions and shows the results. No database.",
+  "scripts": {
+    "dev": "next dev --port 3000",
+    "prebuild": "node scripts/check-workflow.mjs",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "demo-report": "node scripts/make-demo-report.mjs"
+  },
+  "dependencies": {
+    "fflate": "0.8.3",
+    "next": "16.4.2",
+    "next-auth": "5.0.0-beta.32",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "server-only": "0.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "typescript": "5.9.3"
+  }
+}
