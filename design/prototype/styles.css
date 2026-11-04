@@ -242,6 +242,11 @@ footer.site { padding-block: 96px 40px; }
 .keep-notes { margin-top: 12px; }
 @media (max-width: 1000px) { .specs { grid-template-columns: minmax(0, 1fr); } }
 
+.sec-head.split { grid-template-columns: minmax(0, 6fr) minmax(0, 5fr); gap: 48px; align-items: end; }
+.sec-main { display: grid; gap: 20px; }
+.who { background: var(--surface); border-radius: 14px; padding: 22px 24px; }
+@media (max-width: 1000px) { .sec-head.split { grid-template-columns: minmax(0, 1fr); gap: 24px; } }
+
 /* demo video */
 .demo-video { position: relative; margin: 48px 0 0; }
 .hero-video { margin: 0; }
