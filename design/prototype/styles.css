@@ -233,6 +233,11 @@ footer.site { padding-block: 96px 40px; }
 .footer-row nav { display: flex; gap: 20px; flex-wrap: wrap; }
 .footer-row a { color: var(--muted); }
 
+/* code editor card (Tests you can keep) */
+.editor { display: flex; flex-direction: column; border-radius: 14px; overflow: hidden; background: var(--code-bg); min-width: 0; }
+.editor .codebox { border-radius: 0; flex: 1; height: auto !important; }
+@media (min-width: 1001px) { .privacy .yaml-wrap .editor { height: 100%; } }
+
 /* demo video */
 .demo-video { position: relative; margin: 48px 0 0; }
 .hero-video { margin: 0; }

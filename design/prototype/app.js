@@ -439,7 +439,7 @@ describe("lib/products.js", () => {
 
   /* ---------- router ---------- */
   const ROUTES = ['home', 'signin', 'repos', 'setup', 'start', 'live', 'report'];
-  const ANCHORS = ['how', 'get', 'privacy', 'ways', 'faq'];
+  const ANCHORS = ['how', 'get', 'keep', 'privacy', 'ways', 'faq'];
   let current = null;
   function route() {
     let name = location.hash.replace('#', '') || 'home';
