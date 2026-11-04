@@ -1,6 +1,39 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="color-scheme" content="light dark"><title>Help - Demo Shop</title>
-<style>@media (prefers-color-scheme: dark) { body { background: #12161c; color: #e6e9ef; } }</style></head>
-<body><h1>Help</h1><p>Static page served by express.static.</p></body>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Help - Larkspur Paper</title>
+  <link rel="stylesheet" href="/shop.css">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap top-in">
+      <a class="logo" href="/"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c4 4 5 9 0 18-5-9-4-14 0-18z"/></svg>Larkspur Paper</a>
+      <nav><a href="/">Shop</a><a href="/about">About</a><a href="/help.html">Help</a><a class="cart-link" href="/cart">Cart <span class="count">3</span></a></nav>
+    </div>
+  </header>
+  <main>
+    <section class="wrap section" style="padding-top:44px">
+      <p class="eyebrow">Help</p>
+      <h1 class="page-title">Questions people ask us</h1>
+      <div class="help">
+      <div class="faq">
+        <div><h3>When will my order ship?</h3><p>Orders placed before noon ship the same day. Most arrive in two to four days.</p></div>
+        <div><h3>Is shipping free?</h3><p>Shipping is free on orders over $50. Below that it is a flat $4.50.</p></div>
+        <div><h3>Can I return something?</h3><p>Yes, within 30 days, as long as it is unused. Write to us and we will send a label.</p></div>
+        <div><h3>How do I reach you?</h3><p>Email hello@larkspur.example and one of us will answer within a day.</p></div>
+      </div>
+      <aside class="ask">
+        <div class="tile" data-tone="lilac"><svg viewBox="0 0 200 150" role="img" aria-label="Letter writing set"><ellipse cx="100" cy="132" rx="62" ry="5" fill="#000" opacity=".1"/><rect x="58" y="22" width="84" height="64" rx="3" fill="#fbf8f2" transform="rotate(-8 100 54)"/><path d="M70 40h46M70 50h56M70 60h38" stroke="#b9b0c9" stroke-width="3" stroke-linecap="round" transform="rotate(-8 100 54)"/><rect x="42" y="62" width="116" height="66" rx="4" fill="#8f7fb3"/><path d="M42 66l58 36 58-36" fill="none" stroke="#6f5f95" stroke-width="4" stroke-linejoin="round"/><rect x="132" y="70" width="18" height="22" rx="2" fill="#e39b97"/></svg></div>
+        <h2>Still stuck?</h2>
+        <p>Write to us. A real person reads every message, usually the same day.</p>
+        <a class="btn btn-block" href="mailto:hello@larkspur.example">Email us</a>
+      </aside>
+      </div>
+    </section>
+  </main>
+  <footer class="foot"><div class="wrap"><span>Larkspur Paper, paper goods for slow mornings.</span><span>Free shipping over $50</span></div></footer>
+</body>
 </html>

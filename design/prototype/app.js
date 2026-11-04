@@ -264,7 +264,7 @@ jobs:
 
   /* ---------- report ---------- */
   const TESTS = [
-    { g: 'Pages', t: 'page /cart loads', s: 'bug', ms: 772, explain: 'The page loads and shows content, but its script throws an error, so "Total" never updates. Look for cartTotal in the cart page: it is used but never defined.', msg: 'Error: browser errors on this page: Uncaught error: cartTotal is not defined\n\nExpected: []\nReceived: ["Uncaught error: cartTotal is not defined"]', shots: ['img/cart.png', 'img/cart-m.png'] },
+    { g: 'Pages', t: 'page /cart loads', s: 'bug', ms: 772, explain: 'The page loads and shows content, but its script throws an error, so the total stays at $0.00. Look for cartTotal in the cart page: it is used but never defined.', msg: 'Error: browser errors on this page: Uncaught error: cartTotal is not defined\n\nExpected: []\nReceived: ["Uncaught error: cartTotal is not defined"]', shots: ['img/cart.png', 'img/cart-m.png'] },
     { g: 'Pages', t: 'page / loads', s: 'ok', ms: 791, shots: ['img/home.png', 'img/home-m.png'] },
     { g: 'Pages', t: 'page /about loads', s: 'ok', ms: 738, shots: ['img/about.png'] },
     { g: 'Pages', t: 'page /help.html loads', s: 'ok', ms: 773, shots: ['img/help.png'] },
