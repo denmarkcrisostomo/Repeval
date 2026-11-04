@@ -62,7 +62,11 @@ export async function ensureProjectDeps(p: Paths, stack: StackInfo): Promise<{ o
   const tool = cmd.split(' ')[0];
   if (tool !== 'npm' && (await exec(tool, ['--version'], { cwd: p.root })).code !== 0) cmd = `npx --yes ${cmd}`;
   log.info(`Installing project dependencies: ${cmd}`);
-  const res = await exec(cmd, [], { cwd: p.root, shell: true, echo: false });
+  // Under `npm publish --dry-run` (or any npm script run with --dry-run), npm passes
+  // npm_config_dry_run to child processes, and the install would then do nothing.
+  const env = { ...process.env };
+  for (const k of Object.keys(env)) if (k.toLowerCase() === 'npm_config_dry_run') delete env[k];
+  const res = await exec(cmd, [], { cwd: p.root, shell: true, echo: false, env });
   if (res.code !== 0) return { ok: false, message: `"${cmd}" failed:\n${res.tail}` };
   log.ok('Dependencies installed');
   return { ok: true };
