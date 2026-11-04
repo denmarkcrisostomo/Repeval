@@ -11,14 +11,14 @@ const STEPS: [string, string, string, number, number, "passed" | "bug"][] = [
   ["Analyze", "reading code", "express 5 pages", 34, 52, "passed"],
   ["Plan", "picking tests", "9 of 13 targets", 52, 64, "passed"],
   ["Generate", "writing tests", "4 test files", 64, 76, "passed"],
-  ["Test", "opening pages", "10 passed 1 bug", 76, 122, "bug"],
-  ["Save report", "uploading", "kept 7 days", 122, 136, "passed"],
+  ["Test", "opening pages", "10 passed 1 bug", 76, 112, "bug"],
+  ["Save report", "uploading", "kept 7 days", 112, 124, "passed"],
 ];
 const SIZE = 38;
 
 export const BoardRun: React.FC = () => {
   const frame = useCurrentFrame();
-  const seconds = Math.round(interpolate(frame, [6, 136], [0, 62], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }));
+  const seconds = Math.round(interpolate(frame, [6, 124], [0, 62], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }));
   const clock = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 
   return (
