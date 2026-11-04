@@ -153,7 +153,9 @@
         <p>The website and the command line run exactly the same steps. Locally, nothing leaves your computer at all.</p>
       </div>
       <div class="ways">
-<pre class="term" data-ui><span class="p">$</span> npx repeval run
+<div class="term-win" data-ui>
+        <div class="term-bar"><span>Terminal · demo-shop</span><button class="term-replay" type="button" id="termReplay">Replay</button></div>
+<pre class="term" id="term" aria-label="Repeval running in a terminal"><span class="p">$</span> npx repeval run
 
 <span class="y">① Collect files</span>
   Scanned     3 source files, 0 existing tests
@@ -166,10 +168,13 @@
 <span class="y">④ Make tests</span>
   Wrote       4 test files in .repeval/
 <span class="y">⑤ Run</span>
+  Running unit tests with Vitest       <span class="g">✓ 5 passed</span>
+  Running E2E tests with Playwright    <span class="g">✓ 5 passed</span>  <span class="r">× 1 failed</span>
 <span class="y">⑥ Results</span>
-  <span class="g">10 passed</span>  <span class="r">1 possible bugs</span>  0 broken tests  <span class="d">4 skipped</span>
+  <span class="g">10 passed</span>  <span class="r">1 possible bug</span>  0 broken tests  <span class="d">4 skipped</span>
   <span class="r">×</span> page /cart loads <span class="d">· browser errors on this page: cartTotal is not defined</span>
   Report: repeval-report/index.html</pre>
+        </div>
         <div class="way-card">
           <h3>From the website</h3>
           <ol>

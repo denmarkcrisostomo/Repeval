@@ -124,7 +124,7 @@ export async function doTest(root: string, opts: TestOptions = {}): Promise<{ re
   if (opts.card !== false) await captureSummaryCard(p).catch(() => undefined);
   const s = data.summary;
   log.info(
-    `${pc.green(`${s.passed} passed`)}  ${pc.red(`${s['possible-bug']} possible bugs`)}  ${pc.yellow(`${s.broken} broken tests`)}  ${pc.dim(`${s.skipped} skipped`)}`,
+    `${pc.green(`${s.passed} passed`)}  ${pc.red(`${s['possible-bug']} possible bug${s['possible-bug'] === 1 ? '' : 's'}`)}  ${pc.yellow(`${s.broken} broken test${s.broken === 1 ? '' : 's'}`)}  ${pc.dim(`${s.skipped} skipped`)}`,
   );
   for (const suite of results.suites.filter((x) => x.status === 'error')) log.error(`${suite.framework}: ${suite.message?.split('\n')[0]}`);
   for (const t of results.tests.filter((x) => x.status === 'possible-bug').slice(0, 10))

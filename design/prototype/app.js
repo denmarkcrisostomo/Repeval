@@ -391,6 +391,44 @@ describe("lib/products.js", () => {
   }
   syncVideo();
 
+  /* ---------- terminal: types the command, then prints the run line by line ---------- */
+  const term = $('#term');
+  const FINAL = term.innerHTML;
+  const LINES = FINAL.split('\n');
+  let termTimers = [];
+  const SPIN = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+  function playTerminal() {
+    termTimers.forEach(clearTimeout); termTimers = [];
+    if (reduce) { term.innerHTML = FINAL; return; }
+    term.style.minHeight = term.offsetHeight + 'px'; // no layout jump while it types
+    const at = (ms, fn) => termTimers.push(setTimeout(fn, ms));
+    const cmd = 'npx repeval run';
+    let t = 300;
+    const shown = [];
+    const render = (extra = '') => { term.innerHTML = shown.join('\n') + extra + '<span class="cursor" aria-hidden="true"></span>'; };
+    render('<span class="p">$</span> ');
+    for (let i = 1; i <= cmd.length; i++) at((t += 55 + (i % 3) * 25), () => render('<span class="p">$</span> ' + cmd.slice(0, i)));
+    at((t += 350), () => { shown.push(LINES[0]); render('\n'); });
+    LINES.slice(1).forEach((line) => {
+      const isRunLine = /Running (unit|E2E)/.test(line);
+      if (isRunLine) {
+        const label = line.slice(0, line.indexOf('<span'));
+        // spinner while this suite runs, then the real result
+        for (let k = 0; k < 12; k++) at((t += 80), () => render(label + '<span class="spin">' + SPIN[k % SPIN.length] + '</span>'));
+        at((t += 80), () => { shown.push(line); render('\n'); });
+      } else {
+        const pause = line.trim() === '' ? 120 : /class="y"/.test(line) ? 380 : 140;
+        at((t += pause), () => { shown.push(line); render('\n'); });
+      }
+    });
+    at((t += 200), () => { term.innerHTML = FINAL + '\n<span class="p">$</span> <span class="cursor" aria-hidden="true"></span>'; });
+  }
+  $('#termReplay').addEventListener('click', playTerminal);
+  if ('IntersectionObserver' in window && !reduce) {
+    const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) { io.disconnect(); playTerminal(); } }, { threshold: 0.35 });
+    io.observe(term);
+  }
+
   /* ---------- prototype menu ---------- */
   const protoBtn = $('#protoBtn'), protoMenu = $('#protoMenu');
   const setMenu = (open) => { protoMenu.classList.toggle('open', open); protoBtn.setAttribute('aria-expanded', String(open)); };
