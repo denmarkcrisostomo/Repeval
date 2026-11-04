@@ -1,0 +1,6 @@
+{
+  "name": "example-ts-lib",
+  "private": true,
+  "type": "module",
+  "description": "A small TypeScript library used to test Repeval's unit test generation."
+}
