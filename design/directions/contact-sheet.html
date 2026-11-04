@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Repeval · Contact sheet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400..700&family=Permanent+Marker&display=swap" rel="stylesheet">
+<style>
+/* World: a photographer's contact sheet. Every page of the app is a frame; the reviewer marks it up in grease pencil. */
+:root {
+  --s-teal: #00bba7; --s-teal-hi: #2dd4bf; --s-teal-deep: #134e4a; --s-teal-soft: rgba(0,187,167,.16);
+  --paper: #e9ebe8; --sheet: #141716; --ink: #121514; --muted: #4c5551; --pencil: #e0362c;
+  --font: "Instrument Sans", "Helvetica Neue", Arial, sans-serif;
+  --hand: "Permanent Marker", "Marker Felt", cursive;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+}
+* { box-sizing: border-box; }
+html { -webkit-font-smoothing: antialiased; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 17px/1.55 var(--font); }
+::selection { background: var(--s-teal); color: #fff; }
+.wrap { padding: 0 max(24px, 3vw); }
+nav { display: flex; align-items: center; gap: 32px; height: 76px; }
+.word { font-weight: 700; font-size: 22px; letter-spacing: -0.03em; text-decoration: none; color: var(--ink); }
+.word span { color: var(--s-teal-deep); }
+nav ul { display: flex; gap: 28px; list-style: none; margin: 0 0 0 auto; padding: 0; font-size: 15px; }
+nav ul a { color: var(--muted); text-decoration: none; transition: color 150ms ease; }
+nav ul a:hover { color: var(--ink); }
+.btn { display: inline-flex; align-items: center; gap: 10px; height: 48px; padding: 0 22px; border-radius: 0; font: 600 16px var(--font); border: 0; cursor: pointer; text-decoration: none; transition: transform 160ms var(--ease-out), background-color 150ms ease; }
+.btn:active { transform: scale(0.96); }
+.btn-primary { background: var(--ink); color: var(--paper); }
+.btn-primary:hover { background: var(--s-teal-deep); }
+.btn-quiet { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 2px var(--ink); font-family: ui-monospace, Menlo, monospace; font-size: 15px; }
+nav .btn { height: 40px; padding: 0 16px; font-size: 14px; }
+
+.hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 48px; align-items: end; padding: 40px 0 36px; }
+h1 { margin: 0; font-weight: 700; font-size: clamp(54px, 6.6vw, 108px); line-height: 0.95; letter-spacing: -0.045em; text-wrap: balance; }
+.lede { margin: 0 0 6px; max-width: 40ch; font-size: 19px; text-wrap: pretty; }
+.actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 26px; }
+
+.sheet { background: var(--sheet); padding: 22px 22px 26px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; color: #c9cfcc; }
+.frame { margin: 0; position: relative; }
+.frame img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; object-position: top left; display: block; outline: 1px solid rgba(255,255,255,.08); outline-offset: -1px; }
+.frame figcaption { display: flex; justify-content: space-between; font-size: 13px; margin-top: 8px; }
+.frame figcaption b { color: #fff; font-weight: 600; }
+.ok { color: var(--s-teal-hi); }
+.bad { color: #ff7a70; }
+.mark { position: absolute; pointer-events: none; }
+.circle { inset: -16px -14px auto -14px; height: calc(100% - 8px); }
+.circle path, .tick path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.circle path { stroke: var(--pencil); stroke-width: 4; stroke-dasharray: 900; stroke-dashoffset: 900; animation: draw 900ms var(--ease-out) 500ms forwards; }
+.note { position: absolute; left: 4%; bottom: -54px; font: 22px/1.05 var(--hand); color: var(--pencil); transform: rotate(-3deg); white-space: nowrap; opacity: 0; animation: show 400ms ease 1200ms forwards; }
+.tick { right: 10px; top: 8px; width: 34px; height: 30px; }
+.tick path { stroke: var(--s-teal-hi); stroke-width: 4; }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+@keyframes show { to { opacity: 1; } }
+
+.next { padding: 140px 0 80px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 48px; }
+.next h2 { margin: 0; font-weight: 700; font-size: clamp(40px, 4.2vw, 64px); line-height: 1; letter-spacing: -0.04em; }
+.next p { margin: 0; font-size: 19px; max-width: 46ch; }
+@media (max-width: 900px) {
+  nav ul { display: none; }
+  .hero, .next { grid-template-columns: 1fr; }
+  .sheet { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .note { font-size: 17px; bottom: -44px; }
+}
+@media (prefers-reduced-motion: reduce) { .circle path { animation: none; stroke-dashoffset: 0; } .note { animation: none; opacity: 1; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav>
+    <a class="word" href="#">repeval<span>.</span></a>
+    <ul><li><a href="#">How it works</a></li><li><a href="#">Privacy</a></li><li><a href="#">Docs</a></li><li><a href="#">GitHub</a></li></ul>
+    <a class="btn btn-primary" href="#">Sign in with GitHub</a>
+  </nav>
+  <section class="hero">
+    <h1>Every page of your app, checked</h1>
+    <div>
+      <p class="lede">Repeval reads your repo, writes tests, runs them in your own GitHub Actions and photographs every page. Bugs come back circled, in plain words. Free and open source.</p>
+      <div class="actions"><a class="btn btn-primary" href="#">Sign in with GitHub</a><button class="btn btn-quiet" type="button">npx repeval</button></div>
+    </div>
+  </section>
+  <section class="sheet" data-ui aria-label="Screenshots from a run of the demo shop">
+    <figure class="frame"><img src="img/home.png" alt="Home page of the demo shop"><figcaption><b>/</b><span class="ok">passed</span></figcaption>
+      <svg class="mark tick" viewBox="0 0 34 30" aria-hidden="true"><path d="M3 16 L12 25 L31 4"/></svg></figure>
+    <figure class="frame"><img src="img/about.png" alt="About page"><figcaption><b>/about</b><span class="ok">passed</span></figcaption>
+      <svg class="mark tick" viewBox="0 0 34 30" aria-hidden="true"><path d="M3 16 L12 25 L31 4"/></svg></figure>
+    <figure class="frame"><img src="img/cart.png" alt="Cart page, with an error in the browser console"><figcaption><b>/cart</b><span class="bad">possible bug</span></figcaption>
+      <svg class="mark circle" viewBox="0 0 300 200" preserveAspectRatio="none" aria-hidden="true"><path d="M40 30 C 120 -6, 262 4, 290 70 C 312 132, 230 196, 140 192 C 52 188, 4 150, 10 92 C 14 54, 48 30, 96 22"/></svg>
+      <span class="note">cartTotal is not defined</span></figure>
+    <figure class="frame"><img src="img/help.png" alt="Help page"><figcaption><b>/help.html</b><span class="ok">passed</span></figcaption>
+      <svg class="mark tick" viewBox="0 0 34 30" aria-hidden="true"><path d="M3 16 L12 25 L31 4"/></svg></figure>
+  </section>
+  <section class="next">
+    <h2>What a run hands back</h2>
+    <p>These four frames are a real run on the demo shop in the examples folder: desktop and phone screenshots of every page, ten checks passed and one browser error found on the cart page.</p>
+  </section>
+</div>
+</body>
+</html>

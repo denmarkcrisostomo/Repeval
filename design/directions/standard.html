@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Repeval · Standard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400..700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* The category standard, played straight: copy left, product right, three features below. */
+:root {
+  --s-teal: #00bba7; --s-teal-hi: #2dd4bf; --s-teal-deep: #134e4a; --s-teal-soft: rgba(0,187,167,.12);
+  --bg: #ffffff; --surface: #f5f7f7; --ink: #0d1514; --muted: #55605e; --line: #e3e8e7;
+  --font: "Geist", system-ui, sans-serif; --mono: "Geist Mono", ui-monospace, monospace;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+}
+* { box-sizing: border-box; }
+html { -webkit-font-smoothing: antialiased; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.6 var(--font); }
+::selection { background: var(--s-teal-soft); }
+.wrap { max-width: 1240px; margin: 0 auto; padding: 0 24px; }
+nav { display: flex; align-items: center; gap: 32px; height: 68px; }
+.word { font-weight: 650; font-size: 19px; letter-spacing: -0.02em; text-decoration: none; color: var(--ink); display: flex; gap: 8px; align-items: center; }
+.word i { width: 20px; height: 20px; border-radius: 6px; background: var(--s-teal); display: block; }
+nav ul { display: flex; gap: 26px; list-style: none; margin: 0 0 0 auto; padding: 0; font-size: 14px; }
+nav ul a { color: var(--muted); text-decoration: none; transition: color 150ms ease; }
+nav ul a:hover { color: var(--ink); }
+.btn { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 18px; border-radius: 10px; font: 550 15px var(--font); border: 0; cursor: pointer; text-decoration: none; transition: transform 160ms var(--ease-out), background-color 150ms ease; }
+.btn:active { transform: scale(0.96); }
+.btn svg { width: 17px; height: 17px; }
+.btn-primary { background: var(--ink); color: #fff; }
+.btn-primary:hover { background: var(--s-teal-deep); }
+.btn-code { background: var(--surface); color: var(--ink); font-family: var(--mono); font-size: 14px; box-shadow: inset 0 0 0 1px var(--line); }
+nav .btn { height: 36px; padding: 0 14px; font-size: 14px; }
+.hero { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 56px; align-items: center; padding: 72px 0 96px; }
+h1 { margin: 0; font-weight: 650; font-size: clamp(44px, 5vw, 72px); line-height: 1.02; letter-spacing: -0.035em; text-wrap: balance; }
+.lede { margin: 22px 0 0; color: var(--muted); font-size: 18px; max-width: 42ch; text-wrap: pretty; }
+.actions { display: flex; gap: 10px; margin-top: 30px; flex-wrap: wrap; }
+.facts { display: flex; gap: 18px; margin-top: 26px; font-size: 14px; color: var(--muted); flex-wrap: wrap; }
+.facts span::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--s-teal); margin-right: 8px; vertical-align: 1px; }
+.shot { border-radius: 14px; background: var(--surface); padding: 10px; box-shadow: 0 1px 2px rgba(13,21,20,.06), 0 24px 48px -24px rgba(13,21,20,.25); }
+.shot img { width: 100%; display: block; border-radius: 6px; outline: 1px solid rgba(0,0,0,.08); outline-offset: -1px; }
+.features { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 40px; padding: 0 0 96px; }
+.features h3 { margin: 0 0 8px; font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
+.features p { margin: 0; color: var(--muted); }
+@media (max-width: 900px) { nav ul { display: none; } .hero, .features { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav>
+    <a class="word" href="#"><i aria-hidden="true"></i>Repeval</a>
+    <ul><li><a href="#">How it works</a></li><li><a href="#">Privacy</a></li><li><a href="#">Docs</a></li><li><a href="#">GitHub</a></li></ul>
+    <a class="btn btn-primary" href="#">Sign in</a>
+  </nav>
+  <section class="hero">
+    <div>
+      <h1>Tests for the app you already built</h1>
+      <p class="lede">Repeval reads your repo, writes Vitest and Playwright tests, runs them in your own GitHub Actions and hands back a report with a screenshot of every page.</p>
+      <div class="actions">
+        <a class="btn btn-primary" href="#"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>Sign in with GitHub</a>
+        <button class="btn btn-code" type="button">npx repeval</button>
+      </div>
+      <div class="facts"><span>Free, MIT licensed</span><span>Code stays in GitHub</span><span>No AI required</span></div>
+    </div>
+    <div class="shot"><img src="img/report.png" alt="Repeval report for the demo shop: 10 passed, 1 possible bug, flow view of the run"></div>
+  </section>
+  <section class="features">
+    <div><h3>Reads the whole repo</h3><p>Finds your stack, every exported function, every page and API endpoint, and how to start the app.</p></div>
+    <div><h3>Writes real test files</h3><p>Vitest for functions, Playwright for pages and APIs. Download them and keep the ones you like.</p></div>
+    <div><h3>Shows you, not tells you</h3><p>Desktop and phone screenshots of every page, and each bug explained in plain words.</p></div>
+  </section>
+</div>
+</body>
+</html>

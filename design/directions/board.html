@@ -1,0 +1,124 @@
+<title>Repeval Directions</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400..700&display=swap">
+<style>
+/* Layout: one column of direction studies, each a large desktop frame with its phone frame beside it. */
+:root {
+  --s-teal: #00bba7; --s-teal-hi: #2dd4bf; --s-teal-deep: #134e4a; --s-teal-soft: rgba(0,187,167,.14);
+  --bg: #f3f5f4; --surface: #ffffff; --fg: #101716; --muted: #4d5a57; --line: #dfe5e3;
+  --font: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0d1211; --surface: #151c1b; --fg: #e8eeec; --muted: #9eb0ac; --line: #26302e; --s-teal-soft: rgba(0,187,167,.2); color-scheme: dark; } }
+:root[data-theme="dark"] { --bg: #0d1211; --surface: #151c1b; --fg: #e8eeec; --muted: #9eb0ac; --line: #26302e; --s-teal-soft: rgba(0,187,167,.2); color-scheme: dark; }
+body { background: var(--bg); color: var(--fg); font: 16px/1.55 var(--font); -webkit-font-smoothing: antialiased; }
+::selection { background: var(--s-teal); color: #04110f; }
+.wrap { max-width: 1240px; margin: 0 auto; padding-block: 40px 80px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+header h1 { margin: 0; font-size: clamp(34px, 5vw, 56px); line-height: 1; letter-spacing: -0.035em; text-wrap: balance; }
+header p { margin: 14px 0 0; max-width: 64ch; color: var(--muted); font-size: 17px; text-wrap: pretty; }
+.jump { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
+.jump a { text-decoration: none; color: var(--fg); background: var(--surface); padding: 8px 14px; border-radius: 999px; font-weight: 550; font-size: 14px; box-shadow: inset 0 0 0 1px var(--line); transition: background-color 150ms ease, transform 160ms var(--ease-out); }
+.jump a:hover { background: var(--s-teal-soft); }
+.jump a:active { transform: scale(0.96); }
+.dir { margin-top: 88px; scroll-margin-top: 24px; }
+.dir-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 24px; align-items: end; }
+.dir h2 { margin: 0; font-size: clamp(28px, 3.4vw, 40px); line-height: 1.05; letter-spacing: -0.03em; }
+.idea { margin: 8px 0 0; font-size: 18px; max-width: 62ch; text-wrap: pretty; }
+.open { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 18px; border-radius: 999px; background: var(--s-teal-deep); color: #fff; font-weight: 600; text-decoration: none; white-space: nowrap; transition: background-color 150ms ease, transform 160ms var(--ease-out); }
+.open:hover { background: #0f3d3a; }
+.open:active { transform: scale(0.96); }
+.frames { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 0.27fr); gap: 16px; margin-top: 20px; align-items: start; }
+.frames img { width: 100%; height: auto; display: block; border-radius: 10px; outline: 1px solid rgba(0,0,0,.1); outline-offset: -1px; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .frames img { outline-color: rgba(255,255,255,.1); } }
+.notes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; margin-top: 20px; }
+.notes h3 { margin: 0 0 4px; font-size: 15px; font-weight: 650; }
+.notes p { margin: 0; color: var(--muted); font-size: 15px; }
+.std { color: var(--muted); }
+footer { margin-top: 96px; color: var(--muted); font-size: 14px; max-width: 70ch; }
+@media (max-width: 760px) {
+  .dir-head { grid-template-columns: 1fr; }
+  .frames { grid-template-columns: 1fr 0.42fr; }
+  .notes { grid-template-columns: 1fr; gap: 14px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Five ways Repeval's website could look</h1>
+    <p>Each one is a working first screen in your teal, built from real Repeval output: the demo shop run that found the cart bug, and the ts-lib run that caught a changed total. Open the live versions to see the motion. Pick one and I'll build the full prototype in it.</p>
+    <nav class="jump" aria-label="Directions">
+      <a href="#departures">Departures board</a><a href="#contact">Contact sheet</a><a href="#transit">Transit map</a><a href="#marked">Marked paper</a><a href="#standard">Standard</a>
+    </nav>
+  </header>
+
+  <section class="dir" id="departures">
+    <div class="dir-head">
+      <div><h2>Departures board</h2><p class="idea">A run is a station board. Each step of the pipeline is a row that flips to passed, running or bug, like trains leaving on time.</p></div>
+      <a class="open" href="departures.html" target="_blank">Open live mockup</a>
+    </div>
+    <div class="frames"><img src="shots/departures-desk.png" alt="Departures board direction, desktop" loading="lazy"><img src="shots/departures-phone.png" alt="Departures board direction, phone" loading="lazy"></div>
+    <div class="notes">
+      <div><h3>The live thing</h3><p>Switch between demo-shop and ts-lib and the board flips through that real run.</p></div>
+      <div><h3>Carries into the app</h3><p>The live run screen is the board itself, with one row per workflow step from GitHub.</p></div>
+      <div><h3>Risk</h3><p>Dark and theatrical. Needs restraint so the flaps stay readable, not a gimmick.</p></div>
+    </div>
+  </section>
+
+  <section class="dir" id="contact">
+    <div class="dir-head">
+      <div><h2>Contact sheet</h2><p class="idea">The report is a photographer's proof sheet: every page of your app is a frame, and the bug comes back circled in grease pencil.</p></div>
+      <a class="open" href="contact-sheet.html" target="_blank">Open live mockup</a>
+    </div>
+    <div class="frames"><img src="shots/contact-sheet-desk.png" alt="Contact sheet direction, desktop" loading="lazy"><img src="shots/contact-sheet-phone.png" alt="Contact sheet direction, phone" loading="lazy"></div>
+    <div class="notes">
+      <div><h3>The live thing</h3><p>The pencil draws its circle around the cart page and writes the error in plain words.</p></div>
+      <div><h3>Carries into the app</h3><p>The report screen becomes the sheet; the run screen fills frames in as pages are photographed.</p></div>
+      <div><h3>Risk</h3><p>Closest to what screenshot-testing tools already show. Strongest on proof, weaker on the "how".</p></div>
+    </div>
+  </section>
+
+  <section class="dir" id="transit">
+    <div class="dir-head">
+      <div><h2>Transit map</h2><p class="idea">The pipeline is one teal metro line with six stations. A run is a train travelling it; AI mode is a branch line opening soon.</p></div>
+      <a class="open" href="transit.html" target="_blank">Open live mockup</a>
+    </div>
+    <div class="frames"><img src="shots/transit-desk.png" alt="Transit map direction, desktop" loading="lazy"><img src="shots/transit-phone.png" alt="Transit map direction, phone" loading="lazy"></div>
+    <div class="notes">
+      <div><h3>The live thing</h3><p>The train rides the line and stops at Run, where the bug station is marked red.</p></div>
+      <div><h3>Carries into the app</h3><p>It's the same flow you already liked on the Repeval Flow board, as a map: easy for beginners to follow.</p></div>
+      <div><h3>Risk</h3><p>On phones the map needs its own vertical layout; the horizontal line only works wide.</p></div>
+    </div>
+  </section>
+
+  <section class="dir" id="marked">
+    <div class="dir-head">
+      <div><h2>Marked paper</h2><p class="idea">Homework handed back: your code returns on ruled paper, ticked in teal where it works and circled in red pen where it broke.</p></div>
+      <a class="open" href="marked.html" target="_blank">Open live mockup</a>
+    </div>
+    <div class="frames"><img src="shots/marked-desk.png" alt="Marked paper direction, desktop" loading="lazy"><img src="shots/marked-phone.png" alt="Marked paper direction, phone" loading="lazy"></div>
+    <div class="notes">
+      <div><h3>The live thing</h3><p>The red pen circles the line that changed and writes what went wrong: was 3.6, now 1.8.</p></div>
+      <div><h3>Carries into the app</h3><p>Each failing function or page is "marked" with a short, friendly explanation.</p></div>
+      <div><h3>Risk</h3><p>Speaks loudest to students and beginners. Could feel like school to experienced devs.</p></div>
+    </div>
+  </section>
+
+  <section class="dir std" id="standard">
+    <div class="dir-head">
+      <div><h2>Standard dev-tool page</h2><p class="idea">The familiar layout: headline and actions on the left, the real report on the right, three short features below.</p></div>
+      <a class="open" href="standard.html" target="_blank">Open live mockup</a>
+    </div>
+    <div class="frames"><img src="shots/standard-desk.png" alt="Standard direction, desktop" loading="lazy"><img src="shots/standard-phone.png" alt="Standard direction, phone" loading="lazy"></div>
+    <div class="notes">
+      <div><h3>The live thing</h3><p>None by default: the report screenshot does the work.</p></div>
+      <div><h3>Carries into the app</h3><p>Clean, expected app screens with no metaphor to learn.</p></div>
+      <div><h3>Risk</h3><p>Looks like every other developer tool, so it's easy to forget.</p></div>
+    </div>
+  </section>
+
+  <footer>All screenshots inside the mockups come from real Repeval runs on the examples in the repo. Fonts are from Google Fonts. The headline lengths and phone layouts get a full pass once a direction is chosen.</footer>
+</div>

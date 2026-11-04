@@ -3,3 +3,5 @@ dist/
 .repeval/
 repeval-report/
 *.log
+.taste-skill/
+.impeccable/questions/
