@@ -397,6 +397,11 @@ footer.site { padding-block: 96px 40px; }
   .app-bar { gap: 10px; }
   .app-bar .word-text { display: none; }
 }
+@media (max-width: 360px) {
+  .bar { gap: 8px; }
+  .word { font-size: 18px; gap: 8px; }
+  .hero h1 { font-size: 13vw; }
+}
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   [data-route], .result-bar.show { animation: fade 150ms ease both; }
