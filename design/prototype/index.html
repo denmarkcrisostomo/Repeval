@@ -1,6 +1,6 @@
 <title>Repeval Prototype</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<meta name="description" content="Repeval reads your repo, writes Vitest and Playwright tests, runs them in your own GitHub Actions and hands back a screenshot of every page.">
+<meta name="description" content="Repeval tests your app inside your own GitHub Actions and hands back a screenshot of every page. Your code never comes to us, and there is no database.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=JetBrains+Mono:wght@400;500&display=swap">
@@ -44,12 +44,12 @@
       <h1>Tests for code you never tested</h1>
       <div class="hero-grid">
         <div>
-          <p class="lede">Repeval reads your repo, writes Vitest and Playwright tests, runs them in your own GitHub Actions and hands back a screenshot of every page.</p>
+          <p class="lede" style="max-width:40ch">Repeval tests your app inside your own GitHub Actions: it reads your code there, writes the tests, runs them and hands back a screenshot of every page. Your code never comes to us, and we keep no database.</p>
           <div class="actions">
             <a class="btn btn-primary" href="#signin"><svg><use href="#i-gh"/></svg>Sign in with GitHub</a>
             <button class="btn btn-code" type="button" data-copy="npx repeval"><span class="copy-state"><code class="idle">npx repeval</code><span class="done">Copied</span></span></button>
           </div>
-          <ul class="facts"><li>Free, MIT licensed</li><li>Code stays in GitHub</li><li>No AI required</li></ul>
+          <ul class="facts"><li>Free and open source</li><li>Your code never leaves GitHub</li><li>No database, nothing stored</li><li>No AI required</li></ul>
         </div>
         <div class="board" data-ui aria-label="Example run">
           <div class="board-top">
@@ -119,6 +119,7 @@
         <h2>Your code stays in GitHub</h2>
         <p>Runs happen inside your own repo's GitHub Actions. The website starts them and shows the results. It has no database and no permission to read your code.</p>
       </div>
+      <div style="margin-top:40px;max-width:68ch"><h3 style="margin:0 0 8px;font-size:clamp(24px,2.2vw,30px);line-height:1.2">Who can see my code?</h3><p style="margin:0;font-size:19px"><b>Only GitHub.</b> The tests run on a temporary machine in your own GitHub account, which is deleted when the run ends. The Repeval website only sees your repo names and the run's results, and it doesn't keep those either. Sign out and nothing about you remains.</p></div>
       <div class="privacy">
         <div class="perm">
           <div class="yes"><h3>Repeval can</h3><ul>
