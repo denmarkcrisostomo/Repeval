@@ -247,6 +247,11 @@ footer.site { padding-block: 96px 40px; }
 .who { padding: 0; }
 @media (max-width: 1000px) { .sec-head.split { grid-template-columns: minmax(0, 1fr); gap: 24px; } }
 
+#faq { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 20px; align-items: start; }
+#faq > h2 { position: sticky; top: 24px; }
+#faq .faq { margin-top: 0; max-width: none; }
+@media (max-width: 1000px) { #faq { grid-template-columns: minmax(0, 1fr); gap: 32px; } #faq > h2 { position: static; } }
+
 /* demo video */
 .demo-video { position: relative; margin: 48px 0 0; }
 .hero-video { margin: 0; }
