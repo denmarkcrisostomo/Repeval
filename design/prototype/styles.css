@@ -56,6 +56,15 @@ code, pre, kbd { font-family: var(--mono); }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--soft-2); border-radius: 10px; border: 2px solid var(--ground); }
 
+/* screenshots captured in both themes: show the one that matches */
+.for-dark { display: none !important; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-scheme="light"]):not([data-theme="light"]) .for-dark { display: block !important; }
+  :root:not([data-scheme="light"]):not([data-theme="light"]) .for-light { display: none !important; }
+}
+:root[data-scheme="dark"] .for-dark, :root[data-theme="dark"]:not([data-scheme="light"]) .for-dark { display: block !important; }
+:root[data-scheme="dark"] .for-light, :root[data-theme="dark"]:not([data-scheme="light"]) .for-light { display: none !important; }
+
 /* ---------- route transitions ---------- */
 [data-route] { animation: route-in 280ms var(--ease-smooth) both; }
 [data-route][hidden] { display: none !important; }

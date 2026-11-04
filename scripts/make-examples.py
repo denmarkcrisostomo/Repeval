@@ -103,7 +103,7 @@ export function findProduct(id) {
 ''',
     'express-app/public/help.html': '''<!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><title>Help - Demo Shop</title></head>
+<head><meta charset="utf-8"><meta name="color-scheme" content="light dark"><title>Help - Demo Shop</title>\n<style>@media (prefers-color-scheme: dark) { body { background: #12161c; color: #e6e9ef; } }</style></head>
 <body><h1>Help</h1><p>Static page served by express.static.</p></body>
 </html>
 ''',
@@ -119,6 +119,7 @@ const layout = (title, body) => `<!doctype html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
   <title>${title} - Demo Shop</title>
   <style>
     body { font-family: system-ui, sans-serif; margin: 0; color: #1c2130; }
@@ -126,6 +127,11 @@ const layout = (title, body) => `<!doctype html>
     nav a { color: white; margin-right: 16px; }
     main { padding: 24px; max-width: 720px; }
     .card { border: 1px solid #dde; border-radius: 8px; padding: 12px 16px; margin: 8px 0; }
+    @media (prefers-color-scheme: dark) {
+      body { background: #12161c; color: #e6e9ef; }
+      header { background: #24379a; }
+      .card { border-color: #2c3442; background: #181d25; }
+    }
   </style>
 </head>
 <body>
