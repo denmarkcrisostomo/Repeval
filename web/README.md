@@ -38,7 +38,7 @@ With no GitHub App configured, the site runs in **demo mode**: example repos, a 
 | `AUTH_GITHUB_ID` | The app's **Client ID** |
 | `AUTH_GITHUB_SECRET` | The client secret |
 | `GITHUB_APP_SLUG` | The app's URL name, as in `github.com/apps/<slug>` |
-| `REPEVAL_REPO_URL` | Optional: link to the Repeval source for the footer |
+| `REPEVAL_REPO_URL` | Optional: footer GitHub link, if you deploy a fork (defaults to github.com/denmarkcrisostomo/Repeval) |
 
 Users install the app on the repos they choose (the "Allow more repos on GitHub" button links to the install page), then sign in.
 
