@@ -2,6 +2,14 @@
   "name": "repeval",
   "version": "0.1.0",
   "description": "Point it at a JS/TS repo: it generates unit and E2E tests, runs them, and keeps screenshots of every run.",
+  "homepage": "https://github.com/denmarkcrisostomo/Repeval#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/denmarkcrisostomo/Repeval.git"
+  },
+  "bugs": {
+    "url": "https://github.com/denmarkcrisostomo/Repeval/issues"
+  },
   "type": "module",
   "bin": {
     "repeval": "dist/cli.js"

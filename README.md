@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="design/brand/logo-dark.svg">
-    <img alt="Reval logo: the word Reval with a triangle for analyze, test and report" src="design/brand/logo-light.svg" width="300">
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/denmarkcrisostomo/Repeval/main/design/brand/logo-dark.svg">
+    <img alt="Reval logo: the word Reval with a triangle for analyze, test and report" src="https://raw.githubusercontent.com/denmarkcrisostomo/Repeval/main/design/brand/logo-light.png" width="300">
   </picture>
 </p>
 
