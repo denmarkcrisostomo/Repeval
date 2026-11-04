@@ -90,7 +90,7 @@ export const BugScene: React.FC = () => {
             translate: interpolate(frame, [46, 64], ["0px 20px", "0px 0px"], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: ease }),
           }}
         >
-          Visitors would see a total of $0. Repeval found it before they did, and explains it in plain words.
+          Visitors see a $0.00 total under a $28.00 subtotal. Repeval found it first, and explains it in plain words.
         </Interactive.Div>
       </div>
     </AbsoluteFill>
