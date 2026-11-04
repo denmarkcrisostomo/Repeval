@@ -218,7 +218,7 @@ code, pre, kbd { font-family: var(--mono); }
 .cta p { margin: 0 0 22px; color: var(--cta-muted); font-size: 19px; }
 .cta .btn-code { background: var(--soft); color: var(--ink); }
 footer.site { padding-block: 96px 40px; }
-.footer-word { font-weight: 800; font-stretch: 125%; font-size: clamp(64px, 17vw, 270px); line-height: 0.8; letter-spacing: -0.05em; color: var(--ink); margin: 0; }
+.footer-word { font-weight: 800; font-stretch: 125%; font-size: clamp(64px, 17vw, 270px); line-height: 0.8; letter-spacing: -0.05em; color: var(--ink); margin: 0; padding-bottom: 0.16em; text-align: center; }
 .footer-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px 24px; margin-top: 28px; color: var(--muted); font-size: 15px; }
 .footer-row nav { display: flex; gap: 20px; flex-wrap: wrap; }
 .footer-row a { color: var(--muted); }
