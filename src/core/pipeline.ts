@@ -126,7 +126,12 @@ export async function doTest(root: string, opts: TestOptions = {}): Promise<{ re
   log.info(
     `${pc.green(`${s.passed} passed`)}  ${pc.red(`${s['possible-bug']} possible bug${s['possible-bug'] === 1 ? '' : 's'}`)}  ${pc.yellow(`${s.broken} broken test${s.broken === 1 ? '' : 's'}`)}  ${pc.dim(`${s.skipped} skipped`)}`,
   );
-  for (const suite of results.suites.filter((x) => x.status === 'error')) log.error(`${suite.framework}: ${suite.message?.split('\n')[0]}`);
+  for (const suite of results.suites.filter((x) => x.status === 'error')) {
+    const [first, ...rest] = (suite.message ?? '').split('\n');
+    log.error(`${suite.framework}: ${first}`);
+    // Show the end of the tool's output too, so the cause is visible without opening the report.
+    for (const line of rest.filter((l) => l.trim()).slice(-12)) log.dim(line);
+  }
   for (const t of results.tests.filter((x) => x.status === 'possible-bug').slice(0, 10))
     log.info(`${pc.red('✖')} ${t.title}${t.message ? pc.dim(` · ${t.message.split('\n')[0].slice(0, 110)}`) : ''}`);
   const b = results.baselines;

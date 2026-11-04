@@ -70,6 +70,8 @@ describe('repeval CLI on express-app', () => {
     expect(run.code, run.out).toBe(1);
     const r = results(dir);
     const byTarget = Object.fromEntries(r.tests.filter((t: { target?: string }) => t.target).map((t: { target: string }) => [t.target, t]));
+    // If the browser tests did not run, show the CLI output so the cause is visible.
+    expect(byTarget['page:/cart'], `E2E results missing. CLI output:\n${run.out}`).toBeDefined();
     expect(byTarget['page:/cart'].status).toBe('possible-bug');
     expect(byTarget['page:/cart'].message).toContain('cartTotal is not defined');
     expect(byTarget['page:/'].status).toBe('passed');
