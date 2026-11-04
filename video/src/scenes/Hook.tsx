@@ -1,6 +1,7 @@
 import React from "react";
 import { AbsoluteFill, Easing, interpolate, Interactive, useCurrentFrame } from "remotion";
 import { body, C, display } from "../theme";
+import { Logo } from "../Logo";
 
 export const Hook: React.FC = () => {
   const frame = useCurrentFrame();
@@ -10,7 +11,7 @@ export const Hook: React.FC = () => {
         name="Wordmark"
         style={{
           position: "absolute",
-          top: 100,
+          top: 84,
           left: 140,
           display: "flex",
           alignItems: "center",
@@ -22,8 +23,7 @@ export const Hook: React.FC = () => {
           opacity: interpolate(frame, [0, 12], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }),
         }}
       >
-        <div style={{ width: 22, height: 36, borderRadius: 4, background: C.tealHi, boxShadow: `inset 0 -18px 0 ${C.teal}` }} />
-        repeval
+        <Logo height={84} />
       </Interactive.Div>
       <Interactive.Div
         name="Headline line 1"

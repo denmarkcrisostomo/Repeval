@@ -1,6 +1,7 @@
 import React from "react";
 import { AbsoluteFill, Easing, interpolate, Interactive, Sequence, useCurrentFrame } from "remotion";
 import { body, C, display, mono } from "../theme";
+import { Logo } from "../Logo";
 
 const ease = Easing.bezier(0.16, 1, 0.3, 1);
 
@@ -52,22 +53,17 @@ const CallToAction: React.FC = () => {
   return (
     <AbsoluteFill style={{ backgroundColor: C.ground, alignItems: "center", justifyContent: "center", gap: 64 }}>
       <Interactive.Div
-        name="Wordmark"
+        name="Logo"
         style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 36,
-          fontFamily: body,
-          fontWeight: 700,
-          fontSize: 220,
-          letterSpacing: "-0.04em",
-          color: C.ink,
-          opacity: interpolate(frame, [0, 12], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }),
+          opacity: interpolate(frame, [0, 10], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }),
           scale: interpolate(frame, [0, 20], [0.96, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: ease }),
         }}
       >
-        <div style={{ width: 92, height: 150, borderRadius: 14, backgroundColor: C.tealHi, boxShadow: `inset 0 -75px 0 ${C.teal}` }} />
-        repeval
+        <Logo
+          height={300}
+          tip={interpolate(frame, [6, 24], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: ease })}
+          base={interpolate(frame, [10, 28], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: ease })}
+        />
       </Interactive.Div>
       <div
         style={{
