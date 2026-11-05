@@ -7,7 +7,7 @@ const SPIN = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '�
 const LINES = TERMINAL.split('\n');
 const CMD = 'npx repeval run';
 
-/** Types the command, then prints a real demo-shop run line by line, with a spinner while tests run. */
+/** Types the command, then prints a real demo-shop run line by line, with a spinner while tests run. Replays whenever it comes into view. */
 export function Terminal() {
   const pre = useRef<HTMLPreElement>(null);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -55,33 +55,29 @@ export function Terminal() {
     });
   }, []);
 
+  // Stop typing and show the finished run, so nothing animates off screen.
+  const stop = useCallback(() => {
+    timers.current.forEach(clearTimeout);
+    timers.current = [];
+    if (pre.current) pre.current.innerHTML = TERMINAL;
+  }, []);
+
+  // Replays each time it scrolls into view, and stops when it scrolls away.
   useEffect(() => {
     const term = pre.current;
     if (!term || !('IntersectionObserver' in window) || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    const io = new IntersectionObserver(
-      ([e]) => {
-        if (e.isIntersecting) {
-          io.disconnect();
-          play();
-        }
-      },
-      { threshold: 0.35 },
-    );
+    const io = new IntersectionObserver(([e]) => (e.isIntersecting ? play() : stop()), { threshold: 0.35 });
     io.observe(term);
-    const pending = timers.current;
     return () => {
       io.disconnect();
-      pending.forEach(clearTimeout);
+      timers.current.forEach(clearTimeout);
     };
-  }, [play]);
+  }, [play, stop]);
 
   return (
     <div className="term-win" data-ui>
       <div className="term-bar">
         <span>Terminal · demo-shop</span>
-        <button className="term-replay" type="button" onClick={play}>
-          Replay
-        </button>
       </div>
       <pre className="term" ref={pre} aria-label="Repeval running in a terminal" dangerouslySetInnerHTML={{ __html: TERMINAL }} />
     </div>
