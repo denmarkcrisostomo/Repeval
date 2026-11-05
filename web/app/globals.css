@@ -287,7 +287,7 @@ footer.site { padding-block: 96px 40px; }
 }
 
 /* ---------- app screens ---------- */
-.app-main { padding-top: 32px; padding-bottom: 72px; max-width: 1440px; margin: 0 auto; }
+.app-main { padding-top: 32px; padding-bottom: 72px; }
 .page-title { margin: 0; font-weight: 800; font-stretch: 82%; font-size: clamp(34px, 3.4vw, 48px); line-height: 1; letter-spacing: -0.02em; }
 .page-sub { margin: 10px 0 0; color: var(--muted); font-size: 17px; max-width: 64ch; }
 .center { min-height: calc(100vh - 72px); display: grid; place-items: center; padding-top: 24px; padding-bottom: 48px; }
