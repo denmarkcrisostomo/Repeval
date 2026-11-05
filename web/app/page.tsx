@@ -72,7 +72,7 @@ export default async function Home() {
             <li>
               <b>Understand</b>
               <p>Reads your stack, every exported function, every page and API endpoint, and how to start the app.</p>
-              <p className="see">Next.js, Vite, Express, Fastify, Hono, SvelteKit, Remix, React Router.</p>
+              <p className="see">Next.js, Vite, Express, NestJS, Fastify, Hono, SvelteKit, Remix, React Router.</p>
             </li>
             <li>
               <b>Plan</b>

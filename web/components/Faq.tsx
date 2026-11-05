@@ -6,7 +6,7 @@ const FAQ: [string, string][] = [
   ['Is it really free?', 'Yes. Repeval is open source under the MIT licence. On the website, runs use GitHub Actions in your own repo: free for public repos, and private repos use the minutes included with your GitHub plan.'],
   ['Do I need to know how to write tests?', 'No. Repeval writes the tests, runs them and explains every result in plain words. If you want to learn, the generated files are a good place to start: they are normal Vitest and Playwright tests.'],
   ['Do I need AI or an API key?', 'No. This version uses proven templates: it checks every page and API, and records a baseline of what your functions return. AI mode, with your own key or a local model, is coming later and stays optional.'],
-  ['Which projects does it work with?', 'JavaScript and TypeScript projects, including Next.js, Vite, Express, Fastify, Hono, SvelteKit, Remix and React Router. Other languages come later.'],
+  ['Which projects does it work with?', 'JavaScript and TypeScript projects, including Next.js, Vite, Express, NestJS, Fastify, Hono, SvelteKit, Remix and React Router. Other languages come later.'],
   ['Will it change my code?', "No. Generated tests go into a .repeval folder that git ignores, and the report goes into repeval-report. The website can't write to your repo at all."],
   ['My app needs a database or secrets to start. What happens?', "Repeval reads .env.example and tells you which values are missing. Unit tests still run; page tests need the app to start, so add those values as secrets in your repo's settings."],
 ];

@@ -24,7 +24,7 @@ No AI is needed for this version. AI mode (real assertions, user flows, self-hea
 | Step | What happens |
 |---|---|
 | ① Collect | Finds source files, skipping `node_modules`, build output and test files. |
-| ② Understand | Detects the stack (Next.js, Vite, Express, SvelteKit, Remix, React Router…), maps exported functions with ts-morph, finds pages and API endpoints, and works out how to start the app. |
+| ② Understand | Detects the stack (Next.js, Vite, Express, NestJS, SvelteKit, Remix, React Router…), maps exported functions with ts-morph, finds pages and API endpoints, and works out how to start the app. |
 | ③ Plan | Writes `.repeval/repeval-plan.json`: what to test, with which framework, at what priority. Anything it can't test yet is listed with a reason. |
 | ④ Make tests | Writes Vitest and Playwright files into `.repeval/`. Your own files are never touched. |
 | ⑤ Run | Installs dependencies if needed, starts your app, runs the tests. |
