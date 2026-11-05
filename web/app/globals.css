@@ -271,7 +271,7 @@ footer.site { padding-block: 96px 40px; }
 .demo-video { position: relative; margin: 48px 0 0; }
 .hero-video { margin: 0; }
 .demo-video video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; border-radius: 18px; background: var(--board); }
-.demo-video figcaption { margin-top: 12px; color: var(--muted); font-size: 15px; }
+.demo-video figcaption { margin-top: 12px; color: var(--muted); font-size: 15px; text-align: center; }
 
 /* ---------- app screens ---------- */
 .app-main { padding-top: 32px; padding-bottom: 72px; }
