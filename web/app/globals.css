@@ -433,18 +433,18 @@ footer.site { padding-block: 96px 40px; }
 /* ---------- comparison ---------- */
 .cmp-table-wrap { margin-top: 40px; }
 .cmp-table { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; font-size: 15px; }
-.cmp-table th, .cmp-table td { padding: 16px 18px; text-align: left; vertical-align: middle; border-bottom: 1px solid var(--soft); }
+.cmp-table th, .cmp-table td { padding: 16px 18px; text-align: center; vertical-align: middle; border-bottom: 1px solid var(--soft); }
 .cmp-table thead th { font-size: 16px; font-weight: 700; color: var(--muted); }
 .cmp-table thead td { width: 26%; }
-.cmp-table tbody th { padding-left: 0; font-weight: 600; color: var(--ink); }
+.cmp-table tbody th { padding-left: 0; text-align: left; font-weight: 600; color: var(--ink); }
 .cmp-table tbody tr:last-child > * { border-bottom: 0; }
 .cmp-table .mine { background: var(--surface); }
 .cmp-table thead .mine { color: var(--ink); border-radius: 16px 16px 0 0; font-size: 18px; }
 .cmp-table tbody tr:last-child .mine { border-radius: 0 0 16px 16px; }
-.cmp-mark { display: inline-flex; align-items: center; gap: 8px; }
+.cmp-mark { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
 .cmp-mark svg { width: 20px; height: 20px; flex: none; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 .cmp-mark.yes svg { stroke: var(--ok); }
-.cmp-mark.no svg { stroke: var(--muted); opacity: .7; }
+.cmp-mark.no svg { stroke: var(--bug); }
 .cmp-text { color: var(--muted); }
 .mine .cmp-text { color: var(--ink); }
 .cmp-cards { display: none; }
