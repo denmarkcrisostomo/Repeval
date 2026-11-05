@@ -25,6 +25,7 @@ With no GitHub App configured, the site runs in **demo mode**: example repos, a 
    - **Homepage URL:** your site, for example `https://repeval.vercel.app`.
    - **Callback URL:** `https://<your site>/api/auth/callback/github` (and `http://localhost:3000/api/auth/callback/github` for local work).
    - **Expire user authorization tokens:** on.
+   - **Setup URL** (under Post installation): `https://<your site>/repos`, with **Redirect on update** ticked. Without it, GitHub leaves people on its own settings page after they install the app or change its repos.
    - **Webhook:** turn off "Active". The site doesn't use webhooks.
    - **Repository permissions:** Actions: *Read and write*. Metadata: *Read-only*. Leave everything else on *No access*, including Contents.
    - **Account permissions:** none.
