@@ -1,6 +1,6 @@
 {
   "name": "repeval",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Point it at a JS/TS repo: it generates unit and E2E tests, runs them, and keeps screenshots of every run.",
   "homepage": "https://github.com/denmarkcrisostomo/Repeval#readme",
   "repository": {

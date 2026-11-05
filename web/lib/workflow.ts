@@ -46,22 +46,22 @@ jobs:
           node-version: 22
 
       - name: Analyze
-        run: npx --yes repeval@0.1.0 analyze
+        run: npx --yes repeval@0.1.1 analyze
 
       - name: Plan
-        run: npx --yes repeval@0.1.0 plan --tests "$TESTS"
+        run: npx --yes repeval@0.1.1 plan --tests "$TESTS"
         env:
           TESTS: \${{ inputs.tests }}
 
       - name: Generate
-        run: npx --yes repeval@0.1.0 generate --ai "$AI"
+        run: npx --yes repeval@0.1.1 generate --ai "$AI"
         env:
           AI: \${{ inputs.ai }}
           ANTHROPIC_API_KEY: \${{ secrets.ANTHROPIC_API_KEY }}
           OPENAI_API_KEY: \${{ secrets.OPENAI_API_KEY }}
 
       - name: Test
-        run: npx --yes repeval@0.1.0 test
+        run: npx --yes repeval@0.1.1 test
         env:
           AI: \${{ inputs.ai }}
           ANTHROPIC_API_KEY: \${{ secrets.ANTHROPIC_API_KEY }}

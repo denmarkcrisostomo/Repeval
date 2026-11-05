@@ -5,6 +5,8 @@ describe('failure classification', () => {
   it('treats load and import errors as broken tests, assertion failures as possible bugs', () => {
     expect(classifyUnitFailure('Error: Failed to load url ../../src/x.ts')).toBe('broken');
     expect(classifyUnitFailure('TypeError: mod.foo is not a function')).toBe('broken');
+    expect(classifyUnitFailure("Cannot find package '@/lib/seo' imported from /repo/src/app/robots.ts")).toBe('broken');
+    expect(classifyUnitFailure('Failed to parse source for import analysis because the content contains invalid JS syntax.')).toBe('broken');
     expect(classifyUnitFailure('AssertionError: Results changed since the recorded baseline')).toBe('possible-bug');
   });
 

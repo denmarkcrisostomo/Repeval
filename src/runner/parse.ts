@@ -25,7 +25,7 @@ export interface VitestJson {
 
 /** Errors that mean the generated test itself is wrong (or can't load), not that the code under test is buggy. */
 const BROKEN_RE =
-  /SyntaxError|Cannot find module|Failed to load url|Failed to resolve import|Does the file exist|is not defined|is not a function|is not exported|Transform failed|ERR_MODULE_NOT_FOUND|ERR_UNKNOWN_FILE_EXTENSION/i;
+  /SyntaxError|Cannot find module|Failed to load url|Failed to resolve import|Does the file exist|is not defined|is not a function|is not exported|Transform failed|ERR_MODULE_NOT_FOUND|ERR_UNKNOWN_FILE_EXTENSION|Cannot find package|Failed to parse source|invalid JS syntax/i;
 
 export function classifyUnitFailure(message: string): TestStatus {
   return BROKEN_RE.test(message) ? 'broken' : 'possible-bug';

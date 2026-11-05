@@ -1,4 +1,4 @@
-import { mkdtempSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import ts from 'typescript';
@@ -66,5 +66,24 @@ describe('template writer', () => {
     expect(pages).toContain(`description: "page:/cart"`);
     expect(pages).toContain('${errors.join');
     expect(slugForRoute('/help.html')).toBe('help-html');
+  });
+});
+
+describe('vitest config for Next.js projects', () => {
+  it('reads @/ aliases from the default Next.js tsconfig and compiles JSX', () => {
+    const root = mkdtempSync(join(tmpdir(), 'repeval-next-'));
+    mkdirSync(join(root, 'src', 'lib'), { recursive: true });
+    writeFileSync(join(root, 'package.json'), '{"name":"n","version":"1.0.0"}');
+    // Next's default tsconfig: "@/*" and "**/*.ts" together look like a /* comment */ to a naive parser.
+    writeFileSync(
+      join(root, 'tsconfig.json'),
+      '{\n  "compilerOptions": {\n    "jsx": "preserve",\n    "paths": { "@/*": ["./src/*"] },\n  },\n  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx"]\n}\n',
+    );
+    writeFileSync(join(root, 'src', 'lib', 'seo.ts'), 'export function title(s: string) { return s + "!"; }\n');
+    const a = analyze(root);
+    const { contents } = generateUnit(a, buildPlan(a), getPaths(root));
+    const config = [...contents.entries()].find(([k]) => k.endsWith('vitest.config.mjs'))![1];
+    expect(config).toContain(`"@": ${JSON.stringify(join(root, 'src'))}`);
+    expect(config).toContain("jsx: { runtime: 'automatic' }");
   });
 });

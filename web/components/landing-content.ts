@@ -38,8 +38,8 @@ export const WORKFLOW_SNIPPET = `<span class="cm"># .github/workflows/repeval.ym
   <span class="kw">repeval</span>:
     <span class="kw">runs-on</span>: ubuntu-latest   <span class="cm"># a fresh machine, deleted after</span>
     <span class="kw">steps</span>:
-      - <span class="kw">run</span>: npx --yes repeval@0.1.0 analyze
-      - <span class="kw">run</span>: npx --yes repeval@0.1.0 test
+      - <span class="kw">run</span>: npx --yes repeval@0.1.1 analyze
+      - <span class="kw">run</span>: npx --yes repeval@0.1.1 test
       - <span class="kw">uses</span>: actions/upload-artifact@v4   <span class="cm"># report kept 7 days</span>`;
 
 /** The terminal transcript of a real demo-shop run. The Terminal component types it out line by line. */

@@ -1,5 +1,6 @@
-import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+import { ts } from 'ts-morph';
 import { importPath, rel, VERSION, type Paths } from '../core/paths.js';
 import type { Analysis, FunctionInfo, GeneratedFile, Plan } from '../core/types.js';
 
@@ -93,21 +94,23 @@ function functionBlock(f: FunctionInfo): string {
   return lines.join('\n');
 }
 
-/** tsconfig "paths" -> Vite aliases, so `@/lib/x` imports keep working in generated tests. */
+/**
+ * tsconfig "paths" -> Vite aliases, so `@/lib/x` imports keep working in generated tests.
+ * TypeScript's own reader handles comments, trailing commas and "extends".
+ */
 function tsconfigAliases(root: string): Record<string, string> {
   const file = join(root, 'tsconfig.json');
   if (!existsSync(file)) return {};
   try {
-    const text = readFileSync(file, 'utf8')
-      .replace(/\/\*[\s\S]*?\*\//g, '')
-      .replace(/^\s*\/\/.*$/gm, '')
-      .replace(/,(\s*[}\]])/g, '$1');
-    const opts = JSON.parse(text).compilerOptions ?? {};
-    const base = join(root, opts.baseUrl ?? '.');
+    const { config, error } = ts.readConfigFile(file, ts.sys.readFile);
+    if (error) return {};
+    // readDirectory -> [] skips listing the project's files, which is slow and not needed here.
+    const { options } = ts.parseJsonConfigFileContent(config, { ...ts.sys, readDirectory: () => [] }, root, undefined, file);
+    const base = options.baseUrl ?? (options as { pathsBasePath?: string }).pathsBasePath ?? root;
     const out: Record<string, string> = {};
-    for (const [key, targets] of Object.entries<string[]>(opts.paths ?? {})) {
+    for (const [key, targets] of Object.entries(options.paths ?? {})) {
       if (!targets?.[0]) continue;
-      out[key.replace(/\/\*$/, '')] = join(base, targets[0].replace(/\/\*$/, ''));
+      out[key.replace(/\/\*$/, '')] = resolve(base, targets[0].replace(/\/\*$/, ''));
     }
     return out;
   } catch {
@@ -167,6 +170,8 @@ export default {
     passWithNoTests: true,
     testTimeout: 10000,
   },
+  // Next.js sets "jsx": "preserve" in tsconfig, which tests cannot run; compile JSX here instead.
+  oxc: { jsx: { runtime: 'automatic' } },
   resolve: { alias: ${JSON.stringify(tsconfigAliases(p.root), null, 2).replace(/\n/g, '\n  ')} },
 };
 `;
