@@ -446,6 +446,40 @@ footer.site { padding-block: 96px 40px; }
   .marquee { width: 100%; }
 }
 
+/* ---------- comparison ---------- */
+.cmp-table-wrap { margin-top: 40px; }
+.cmp-table { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; font-size: 15px; }
+.cmp-table th, .cmp-table td { padding: 16px 18px; text-align: left; vertical-align: middle; border-bottom: 1px solid var(--soft); }
+.cmp-table thead th { font-size: 16px; font-weight: 700; color: var(--muted); }
+.cmp-table thead td { width: 26%; }
+.cmp-table tbody th { padding-left: 0; font-weight: 600; color: var(--ink); }
+.cmp-table tbody tr:last-child > * { border-bottom: 0; }
+.cmp-table .mine { background: var(--surface); }
+.cmp-table thead .mine { color: var(--ink); border-radius: 16px 16px 0 0; font-size: 18px; }
+.cmp-table tbody tr:last-child .mine { border-radius: 0 0 16px 16px; }
+.cmp-mark { display: inline-flex; align-items: center; gap: 8px; }
+.cmp-mark svg { width: 20px; height: 20px; flex: none; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.cmp-mark.yes svg { stroke: var(--ok); }
+.cmp-mark.no svg { stroke: var(--muted); opacity: .7; }
+.cmp-text { color: var(--muted); }
+.mine .cmp-text { color: var(--ink); }
+.cmp-cards { display: none; }
+.cmp-humble { margin: 32px 0 0; max-width: 72ch; color: var(--muted); font-size: 17px; }
+.cmp-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px 24px; margin-top: 18px; color: var(--muted); font-size: 14px; }
+.cmp-foot a { color: var(--ink); }
+@media (max-width: 860px) {
+  .cmp-table-wrap { display: none; }
+  .cmp-cards { display: grid; gap: 12px; margin-top: 32px; }
+  .cmp-card { padding: 22px; border-radius: 16px; border: 1px solid var(--soft); }
+  .cmp-card.mine { background: var(--surface); border-color: transparent; }
+  .cmp-card h3 { margin: 0 0 8px; font-size: 20px; }
+  .cmp-card dl { margin: 0; }
+  .cmp-card dl > div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--soft); font-size: 14px; }
+  .cmp-card dl > div:last-child { border-bottom: 0; padding-bottom: 0; }
+  .cmp-card dt { color: var(--muted); }
+  .cmp-card dd { margin: 0; }
+}
+
 /* ---------- responsive ---------- */
 @media (max-width: 1000px) {
   .hero-grid, .sec-head, .proof, .privacy, .ways, .cta, .keep, .setup, .live-grid { grid-template-columns: 1fr; }

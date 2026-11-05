@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Compare } from '@/components/Compare';
 import { CopyButton } from '@/components/CopyButton';
 import { DemoVideo } from '@/components/DemoVideo';
 import { Faq } from '@/components/Faq';
@@ -157,6 +158,24 @@ export default async function Home() {
               </div>
               <pre className="codebox" dangerouslySetInnerHTML={{ __html: API_SPEC }} />
             </div>
+          </div>
+        </section>
+
+        <section className="section" id="compare">
+          <div className="sec-head">
+            <h2>A second opinion, not a replacement</h2>
+            <p>Keep the tools you already use. Repeval is a free, open-source second look at your code. Run it alongside your current tests and see what it finds.</p>
+          </div>
+          <Compare />
+          <p className="cmp-humble">
+            Every tool in these categories is made by talented teams, and many do things Repeval doesn&apos;t yet. Repeval isn&apos;t trying to be the best or to
+            replace them. It&apos;s a free alternative and a second opinion, so anyone can test their code at no cost.
+          </p>
+          <div className="cmp-foot">
+            <span>
+              Comparison as of November 2026. Tools change; if something here looks wrong, <a href={`${REPO_URL}/issues`}>tell us on GitHub</a>.
+            </span>
+            <a href="#privacy">How your code stays private ↓</a>
           </div>
         </section>
 
