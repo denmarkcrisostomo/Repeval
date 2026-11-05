@@ -470,8 +470,11 @@ footer.site { padding-block: 96px 40px; }
 /* ---------- real app additions ---------- */
 .me { overflow: hidden; }
 .me img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.signout { border: 0; background: none; color: var(--muted); font: 600 14px var(--font); cursor: pointer; padding: 8px 4px; }
-.signout:hover { color: var(--ink); }
+.signout { position: relative; display: grid; place-items: center; width: 36px; height: 36px; border: 0; border-radius: 999px; background: none; color: var(--muted); cursor: pointer; transition: color 150ms ease, background-color 150ms ease, transform 160ms var(--ease-out); }
+.signout::before { content: ""; position: absolute; inset: -4px; }
+.signout:hover { color: var(--ink); background: var(--soft); }
+.signout:active { transform: scale(.94); }
+.signout svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .notice { margin-top: 18px; padding: 14px 18px; border-radius: 12px; background: var(--surface); color: var(--muted); font-size: 15px; }
 .notice b { color: var(--ink); }
 .notice.warn { background: var(--bug-soft); color: var(--bug); }
@@ -500,6 +503,5 @@ footer.site { padding-block: 96px 40px; }
 .app-bar nav.app-tabs { margin-left: 4px; }
 @media (max-width: 640px) {
   .app-bar .repo-pill b { max-width: 12ch; }
-  .signout { white-space: nowrap; }
   .demo-band span { display: none; }
 }

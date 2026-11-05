@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { signOutAction } from '@/app/actions';
 import type { Access } from '@/lib/session';
-import { Logo } from './Sprite';
+import { Icon, Logo } from './Sprite';
 import { ThemeSwitch } from './ThemeSwitch';
 
 /** Header for the signed-in screens. */
@@ -33,11 +33,6 @@ export function AppBar({ access, repo, tab }: { access: Access; repo?: { owner: 
       <div style={{ marginLeft: 'auto' }}>
         <ThemeSwitch />
       </div>
-      <form action={signOutAction}>
-        <button className="signout" type="submit">
-          Sign out
-        </button>
-      </form>
       <span className="me" title={`Signed in as ${access.login}`}>
         {access.image ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -47,6 +42,11 @@ export function AppBar({ access, repo, tab }: { access: Access; repo?: { owner: 
         )}
         <span className="sr">Signed in as {access.login}</span>
       </span>
+      <form action={signOutAction}>
+        <button className="signout" type="submit" aria-label="Sign out" title="Sign out">
+          <Icon name="out" />
+        </button>
+      </form>
     </header>
   );
 }
