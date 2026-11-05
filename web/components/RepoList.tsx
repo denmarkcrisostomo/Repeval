@@ -44,7 +44,8 @@ export function RepoList({ repos, installUrl, now }: { repos: Repo[]; installUrl
               </div>
               <span className="meta">Pushed {ago(r.pushedAt, now)}</span>
               <span>
-                {r.hasWorkflow === true && <span className="status ok">Ready to run</span>}
+                {r.hasWorkflow === true && !r.workflowOutdated && <span className="status ok">Ready to run</span>}
+                {r.hasWorkflow === true && r.workflowOutdated && <span className="status run">Workflow out of date</span>}
                 {r.hasWorkflow === false && <span className="status skip">Needs the workflow file</span>}
               </span>
               <Link className={'btn ' + (r.hasWorkflow === false ? 'btn-soft' : 'btn-primary')} href={href}>

@@ -1,7 +1,7 @@
 import 'server-only';
 import { findStep } from './steps';
 import type { Repo, RunPhase, RunStatus, RunStep, RunSummary, StepState, TestChoice } from './types';
-import { ARTIFACT_NAME, WORKFLOW_FILE } from './workflow';
+import { ARTIFACT_NAME, SAVE_RUN_TITLE, WORKFLOW_FILE, WORKFLOW_NAME } from './workflow';
 
 // Thin GitHub REST client. Runs on the server only, with the signed-in user's own token.
 // The GitHub App behind that token has Actions (read/write) and Metadata (read) permissions
@@ -78,16 +78,20 @@ export async function listRepos(token: string): Promise<Repo[]> {
 
 export async function getRepo(token: string, owner: string, repo: string): Promise<Repo> {
   const r = toRepo(await json<GhRepo>(token, repoPath(owner, repo)));
-  r.hasWorkflow = await hasWorkflow(token, owner, repo);
+  Object.assign(r, await workflowState(token, owner, repo));
   return r;
 }
 
-/** Looks the workflow up through the Actions API, which needs no access to the repo's files. */
-export async function hasWorkflow(token: string, owner: string, repo: string): Promise<boolean> {
+/**
+ * Looks the workflow up through the Actions API, which needs no access to the repo's files.
+ * The API returns the workflow's name, and the name carries the template version ("workflow v2").
+ */
+export async function workflowState(token: string, owner: string, repo: string): Promise<Pick<Repo, 'hasWorkflow' | 'workflowOutdated'>> {
   const res = await call(token, `${repoPath(owner, repo)}/actions/workflows/${WORKFLOW_FILE}`);
-  if (res.status === 404) return false;
+  if (res.status === 404) return { hasWorkflow: false, workflowOutdated: false };
   if (!res.ok) throw new GitHubError(res.status, res.statusText);
-  return true;
+  const { name } = (await res.json()) as { name?: string };
+  return { hasWorkflow: true, workflowOutdated: name !== WORKFLOW_NAME };
 }
 
 /* ---------- runs ---------- */
@@ -102,6 +106,7 @@ interface GhRun {
   updated_at: string;
   actor: { login: string } | null;
   html_url: string;
+  display_title?: string;
 }
 
 const phaseOf = (status: string): RunPhase =>
@@ -124,25 +129,19 @@ export async function listRuns(token: string, owner: string, repo: string): Prom
   if (res.status === 404) return [];
   if (!res.ok) throw new GitHubError(res.status, res.statusText);
   const { workflow_runs } = (await res.json()) as { workflow_runs: GhRun[] };
-  return workflow_runs.map(toSummary);
+  // "Commit to a branch" runs are not test runs, so they stay out of the run history.
+  return workflow_runs.filter((r) => r.display_title !== SAVE_RUN_TITLE).map(toSummary);
 }
 
 /**
  * Starts the workflow on the repo's default branch and returns the new run's id.
  * GitHub can return the run id directly; if it doesn't, the newest run this user started is used.
  */
-export async function startRun(
-  token: string,
-  owner: string,
-  repo: string,
-  branch: string,
-  tests: TestChoice,
-  login: string,
-): Promise<string> {
+async function dispatch(token: string, owner: string, repo: string, branch: string, inputs: Record<string, string>, login: string): Promise<string> {
   const since = Date.now();
   const res = await call(token, `${repoPath(owner, repo)}/actions/workflows/${WORKFLOW_FILE}/dispatches`, {
     method: 'POST',
-    body: JSON.stringify({ ref: branch, inputs: { ai: 'none', tests }, return_run_details: true }),
+    body: JSON.stringify({ ref: branch, inputs, return_run_details: true }),
   });
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { message?: string };
@@ -165,6 +164,15 @@ export async function startRun(
   throw new GitHubError(504, 'The run was started, but GitHub has not listed it yet. Open the repo again in a moment.');
 }
 
+export function startRun(token: string, owner: string, repo: string, branch: string, tests: TestChoice, login: string): Promise<string> {
+  return dispatch(token, owner, repo, branch, { ai: 'none', tests }, login);
+}
+
+/** Starts the workflow's save-tests job, which pushes the tests from fromRunId to the repeval-tests branch. */
+export function startSave(token: string, owner: string, repo: string, branch: string, fromRunId: string, login: string): Promise<string> {
+  return dispatch(token, owner, repo, branch, { ai: 'none', tests: 'all', save_from_run: fromRunId }, login);
+}
+
 interface GhStep {
   name: string;
   status: string;
@@ -183,8 +191,13 @@ function stepState(s: GhStep): StepState {
 export async function getRunStatus(token: string, owner: string, repo: string, runId: string): Promise<RunStatus> {
   const base = repoPath(owner, repo);
   const run = await json<GhRun>(token, `${base}/actions/runs/${runId}`);
-  const { jobs } = await json<{ jobs: { steps?: GhStep[] }[] }>(token, `${base}/actions/runs/${runId}/jobs?per_page=10`);
-  const ghSteps = jobs[0]?.steps ?? [];
+  const { jobs } = await json<{ jobs: { name: string; conclusion: string | null; steps?: GhStep[] }[] }>(
+    token,
+    `${base}/actions/runs/${runId}/jobs?per_page=10`,
+  );
+  // The workflow has two jobs and only one runs; the other is skipped.
+  const job = jobs.find((j) => j.name === 'repeval') ?? jobs.find((j) => j.conclusion !== 'skipped') ?? jobs[0];
+  const ghSteps = job?.steps ?? [];
   const steps: RunStep[] = [];
   for (const s of ghSteps) {
     const info = findStep(s.name);

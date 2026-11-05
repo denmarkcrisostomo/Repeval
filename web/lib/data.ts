@@ -10,9 +10,9 @@ import type { Repo, RunStatus, RunSummary, TestChoice } from './types';
 export async function listRepos(a: Access): Promise<Repo[]> {
   if (a.kind === 'demo') return demo.listRepos();
   const repos = await gh.listRepos(a.token);
-  const checked = await Promise.allSettled(repos.slice(0, 30).map((r) => gh.hasWorkflow(a.token, r.owner, r.name)));
+  const checked = await Promise.allSettled(repos.slice(0, 30).map((r) => gh.workflowState(a.token, r.owner, r.name)));
   checked.forEach((c, i) => {
-    if (c.status === 'fulfilled') repos[i].hasWorkflow = c.value;
+    if (c.status === 'fulfilled') Object.assign(repos[i], c.value);
   });
   return repos;
 }
@@ -33,6 +33,11 @@ export async function listRuns(a: Access, owner: string, name: string): Promise<
 
 export async function startRun(a: Access, repo: Repo, tests: TestChoice): Promise<string> {
   return a.kind === 'demo' ? demo.startRun(repo.name) : gh.startRun(a.token, repo.owner, repo.name, repo.defaultBranch, tests, a.login);
+}
+
+/** Pushes the tests from an earlier run to the repeval-tests branch, through the repo's own workflow. */
+export async function startSave(a: Access, repo: Repo, fromRunId: string): Promise<string> {
+  return a.kind === 'demo' ? demo.startSave() : gh.startSave(a.token, repo.owner, repo.name, repo.defaultBranch, fromRunId, a.login);
 }
 
 export async function getRunStatus(a: Access, owner: string, name: string, runId: string): Promise<RunStatus | null> {

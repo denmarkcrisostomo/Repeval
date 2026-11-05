@@ -15,6 +15,8 @@ const REPOS: Repo[] = [
   { owner: OWNER, name: 'notes-api', private: true, defaultBranch: 'main', pushedAt: new Date(Date.now() - 8 * 24 * HOUR).toISOString() },
 ];
 const READY = new Set(['demo-shop', 'ts-lib']);
+/** Has the workflow, but an older version, to show the "update" notice. */
+const OUTDATED = new Set(['ts-lib']);
 
 const WF_COOKIE = 'repeval-demo-wf';
 const RUNS_COOKIE = 'repeval-demo-runs';
@@ -27,14 +29,18 @@ async function addedWorkflows(): Promise<string[]> {
 
 export async function listRepos(): Promise<Repo[]> {
   const added = await addedWorkflows();
-  return REPOS.map((r) => ({ ...r, hasWorkflow: READY.has(r.name) || added.includes(r.name) }));
+  return REPOS.map((r) => ({
+    ...r,
+    hasWorkflow: READY.has(r.name) || added.includes(r.name),
+    workflowOutdated: OUTDATED.has(r.name) && !added.includes(r.name),
+  }));
 }
 
 export async function getRepo(name: string): Promise<Repo | null> {
   return (await listRepos()).find((r) => r.name === name) ?? null;
 }
 
-/** Stands in for the user committing the workflow file on GitHub. */
+/** Stands in for the user committing (or updating) the workflow file on GitHub. */
 export async function markWorkflowAdded(name: string): Promise<void> {
   const added = new Set(await addedWorkflows());
   added.add(name);
@@ -114,7 +120,36 @@ export async function listRuns(repo: string): Promise<RunSummary[]> {
   });
 }
 
+/* ---------- simulated "Commit to a branch" ---------- */
+
+const SAVE_SECONDS = 6;
+
+/** Save runs carry their start time in the id ("s" + base-36 seconds), so no state is needed. */
+export function startSave(): string {
+  return 's' + Math.floor(Date.now() / 1000).toString(36);
+}
+
+function simulateSave(id: string): RunStatus {
+  const start = startOf(id);
+  const done = Date.now() - start >= SAVE_SECONDS * 1000;
+  const iso = (ms: number) => new Date(ms).toISOString();
+  return {
+    id,
+    phase: done ? 'done' : 'running',
+    conclusion: done ? 'success' : null,
+    branch: 'main',
+    createdAt: iso(start),
+    startedAt: iso(start),
+    updatedAt: iso(Math.min(Date.now(), start + SAVE_SECONDS * 1000)),
+    actor: OWNER,
+    htmlUrl: null,
+    steps: [],
+    hasReport: false,
+  };
+}
+
 export async function getRunStatus(repo: string, id: string): Promise<RunStatus | null> {
+  if (id.startsWith('s')) return Date.now() - startOf(id) < 3600_000 ? simulateSave(id) : null;
   if (!(await runsFor(repo)).includes(id)) return null;
   return simulate(repo, id);
 }

@@ -12,7 +12,7 @@ import { isRepoName } from '@/lib/names';
 import { requireAccess } from '@/lib/session';
 import { ago } from '@/lib/time';
 import type { RunSummary } from '@/lib/types';
-import { newFileUrl, WORKFLOW_PATH, WORKFLOW_YAML } from '@/lib/workflow';
+import { editFileUrl, newFileUrl, WORKFLOW_PATH, WORKFLOW_YAML } from '@/lib/workflow';
 
 type Props = { params: Promise<{ owner: string; repo: string }>; searchParams: Promise<{ error?: string; checked?: string }> };
 
@@ -113,7 +113,45 @@ export default async function RepoPage({ params, searchParams }: Props) {
         <p className="page-sub">
           Runs happen on GitHub Actions in this repo, on the {repo.defaultBranch} branch. Free for public repos; private repos use your plan&apos;s Actions minutes.
         </p>
-        {checked && <p className="notice"><b>Found {WORKFLOW_PATH}.</b> This repo is ready to run.</p>}
+        {checked && !repo.workflowOutdated && <p className="notice"><b>Found {WORKFLOW_PATH}.</b> This repo is ready to run.</p>}
+        {repo.workflowOutdated && (
+          <section className="panel update-panel" id="update">
+            <h2>Update the workflow file</h2>
+            <p>
+              This repo has an older <code>{WORKFLOW_PATH}</code>. Runs still work, but the new version adds <b>Commit to a branch</b> for saving tests,
+              and picks up Repeval bug fixes by itself from now on. Repeval can&apos;t edit your repo, so you paste it in yourself.
+            </p>
+            <ol className="update-steps">
+              <li>
+                <CopyButton text={WORKFLOW_YAML} label="Copy the new file" code={false} className="btn btn-soft btn-small" />
+              </li>
+              <li>
+                {access.kind === 'demo' ? (
+                  <form action={demoAddWorkflowAction.bind(null, repo.name)}>
+                    <SubmitButton className="btn btn-primary btn-small" pendingLabel="Updating">
+                      <Icon name="gh" />
+                      Update it (demo)
+                    </SubmitButton>
+                  </form>
+                ) : (
+                  <a className="btn btn-primary btn-small" href={editFileUrl(repo.owner, repo.name, repo.defaultBranch)} target="_blank" rel="noopener noreferrer">
+                    <Icon name="gh" />
+                    Open it on GitHub
+                  </a>
+                )}
+                <span>Select everything, paste, and commit.</span>
+              </li>
+              <li>
+                <form action={checkWorkflowAction.bind(null, repo.owner, repo.name)}>
+                  <SubmitButton className="btn btn-soft btn-small" pendingLabel="Checking">
+                    Check again
+                  </SubmitButton>
+                </form>
+                {checked && <span className="warn-text">Still the old version. Commit the new file on GitHub, then check again.</span>}
+              </li>
+            </ol>
+          </section>
+        )}
         {error && ERRORS[error] && <p className="notice warn">{ERRORS[error]}</p>}
         <div className="repo-page">
           <form className="panel" style={{ width: '100%' }} action={startRunAction.bind(null, repo.owner, repo.name)}>

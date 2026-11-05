@@ -9,6 +9,8 @@ export interface Repo {
   pushedAt: string | null;
   /** Whether .github/workflows/repeval.yml exists. Only filled in where a page needs it. */
   hasWorkflow?: boolean;
+  /** The workflow file is there but older than the current template. */
+  workflowOutdated?: boolean;
 }
 
 export type StepState = 'waiting' | 'running' | 'passed' | 'failed' | 'skipped';

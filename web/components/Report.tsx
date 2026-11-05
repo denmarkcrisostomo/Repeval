@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { loadReport, STATUS_CLASS, STATUS_LABEL, type LoadedReport, type ReportTest } from '@/lib/report-client';
 import type { RunStatus } from '@/lib/types';
 import { clock } from '@/lib/time';
+import { testsPullRequestUrl, TESTS_BRANCH } from '@/lib/workflow';
 import { Board } from './Board';
 
 const GROUPS: { suite: ReportTest['suite']; label: string }[] = [
@@ -24,7 +25,14 @@ function explain(t: ReportTest): string | null {
   return null;
 }
 
-export function Report({ owner, repo, run }: { owner: string; repo: string; run: RunStatus }) {
+/** What the "Commit to a branch" button needs to know about the repo. */
+export interface SaveTarget {
+  defaultBranch: string;
+  workflowOutdated: boolean;
+  demo: boolean;
+}
+
+export function Report({ owner, repo, run, save }: { owner: string; repo: string; run: RunStatus; save: SaveTarget }) {
   const [report, setReport] = useState<LoadedReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('tests');
@@ -207,12 +215,7 @@ export function Report({ owner, repo, run }: { owner: string; repo: string; run:
 
         {tab === 'code' && (
           <>
-            <div className="code-actions">
-              <p>
-                {report.tests.length} files written for {repo}. Copy them into your repo to keep testing on every change.
-              </p>
-              <DownloadTests report={report} />
-            </div>
+<KeepToolbar owner={owner} repo={repo} runId={run.id} report={report} target={save} />
             {report.tests.length > 0 ? (
               <div className="code-view">
                 <div className="files" role="tablist" aria-label="Files">
@@ -251,5 +254,129 @@ function DownloadTests({ report }: { report: LoadedReport }) {
     <a className="btn btn-primary btn-small" href={href} download="repeval-tests.zip">
       Download all tests
     </a>
+  );
+}
+
+/* ---------- "Tests to keep" toolbar: download, or commit to a branch ---------- */
+
+type SaveState =
+  | { kind: 'idle' }
+  | { kind: 'starting' }
+  | { kind: 'running'; id: string }
+  | { kind: 'done' }
+  | { kind: 'error'; message: string; href?: string | null; outdated?: boolean };
+
+function KeepToolbar({ owner, repo, runId, report, target }: { owner: string; repo: string; runId: string; report: LoadedReport; target: SaveTarget }) {
+  const [state, setState] = useState<SaveState>({ kind: 'idle' });
+  const api = `/api/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/runs`;
+  const repoPage = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
+
+  // Poll the save run until GitHub reports it done.
+  useEffect(() => {
+    if (state.kind !== 'running') return;
+    let stop = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const tick = async () => {
+      try {
+        const res = await fetch(`${api}/${encodeURIComponent(state.id)}`, { cache: 'no-store' });
+        const body = await res.json();
+        if (stop) return;
+        if (!res.ok) return setState({ kind: 'error', message: body.error ?? 'GitHub did not answer.' });
+        if (body.phase === 'done')
+          return setState(
+            body.conclusion === 'success' ? { kind: 'done' } : { kind: 'error', message: 'The save run on GitHub did not finish.', href: body.htmlUrl },
+          );
+      } catch {
+        /* network blip: try again on the next tick */
+      }
+      if (!stop) timer = setTimeout(tick, 3000);
+    };
+    timer = setTimeout(tick, 2000);
+    return () => {
+      stop = true;
+      clearTimeout(timer);
+    };
+  }, [state, api]);
+
+  const start = async () => {
+    setState({ kind: 'starting' });
+    try {
+      const res = await fetch(`${api}/${encodeURIComponent(runId)}/save`, { method: 'POST' });
+      const body = await res.json();
+      if (!res.ok) return setState({ kind: 'error', message: body.error ?? 'GitHub did not start the save.', outdated: body.outdated });
+      setState({ kind: 'running', id: body.runId });
+    } catch {
+      setState({ kind: 'error', message: 'Could not reach the Repeval site. Check your connection and try again.' });
+    }
+  };
+
+  const has = report.tests.length > 0;
+  const busy = state.kind === 'starting' || state.kind === 'running';
+  const outdated = target.workflowOutdated || (state.kind === 'error' && state.outdated);
+
+  let status: ReactNode = null;
+  if (!has) status = null;
+  else if (outdated)
+    status = (
+      <p className="notice keep-status">
+        To commit these tests from here, <a href={repoPage}>update the workflow file</a> first. It takes one paste on GitHub.
+      </p>
+    );
+  else if (state.kind === 'idle')
+    status = (
+      <p className="keep-note keep-status">
+        <b>Commit to a branch</b> pushes these files to a <code>{TESTS_BRANCH}</code> branch, using your repo&apos;s own GitHub Actions. Then you open a pull
+        request and decide. Repeval itself still can&apos;t write to your repo.
+      </p>
+    );
+  else if (busy) status = <p className="notice keep-status">Pushing the tests to the <code>{TESTS_BRANCH}</code> branch on GitHub. This takes about 20 seconds…</p>;
+  else if (state.kind === 'done')
+    status = target.demo ? (
+      <p className="notice keep-status">
+        <b>Demo:</b> on GitHub, the tests are now on the <code>{TESTS_BRANCH}</code> branch, and this button opens the pull request page.
+      </p>
+    ) : (
+      <p className="notice keep-status">
+        <b>Pushed to {TESTS_BRANCH}.</b> Open the pull request to review the files and merge them.
+      </p>
+    );
+  else if (state.kind === 'error')
+    status = (
+      <p className="notice warn keep-status">
+        {state.message}{' '}
+        {state.href && (
+          <a href={state.href} target="_blank" rel="noopener noreferrer">
+            See it on GitHub
+          </a>
+        )}
+      </p>
+    );
+
+  return (
+    <>
+      <div className="code-actions">
+        <p>
+          {report.tests.length} files written for {repo}. Copy them into your repo to keep testing on every change.
+        </p>
+        <DownloadTests report={report} />
+        {has &&
+          (state.kind === 'done' ? (
+            <a
+              className="btn btn-primary btn-small"
+              href={target.demo ? undefined : testsPullRequestUrl(owner, repo, target.defaultBranch)}
+              aria-disabled={target.demo || undefined}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Open pull request
+            </a>
+          ) : (
+            <button type="button" className="btn btn-soft btn-small" onClick={start} disabled={busy || !!outdated}>
+              {state.kind === 'starting' ? 'Starting on GitHub…' : state.kind === 'running' ? 'Pushing…' : 'Commit to a branch'}
+            </button>
+          ))}
+      </div>
+      {status}
+    </>
   );
 }

@@ -47,6 +47,12 @@ Users install the app on the repos they choose (the "Allow more repos on GitHub"
 
 Import the repository, set **Root Directory** to `web`, and add the variables above. `npm run build` first checks that `lib/workflow.ts` still matches `templates/repeval.yml`.
 
+## The workflow file
+
+- It runs `npx repeval@0.1`, so bug-fix releases (0.1.x) reach every repo without anyone editing the file.
+- Its `name:` carries a template version, `Repeval (workflow v2)`. The site reads that name through the Actions API (no Contents permission needed) and shows **Update the workflow file** when a repo has an older one. When you change the template, bump the version in both `templates/repeval.yml` and `WORKFLOW_NAME` in `lib/workflow.ts`; the build checks they match.
+- **Commit to a branch** on the report starts the same workflow with `save_from_run=<run id>`. Its `save-tests` job downloads that run's report and pushes the generated tests to the `repeval-tests` branch with the repo's own token. Only that job gets `contents: write`; the Repeval app's permissions don't change. The site then links to GitHub's pull request page.
+
 ## How it fits together
 
 | Path | What it does |
@@ -56,7 +62,8 @@ Import the repository, set **Root Directory** to `web`, and add the variables ab
 | `app/repos` | Repos the user allowed, with whether each has the workflow file |
 | `app/repos/[owner]/[repo]` | Adds the workflow (GitHub's own prefilled "new file" page) or starts a run |
 | `app/repos/[owner]/[repo]/runs/[runId]` | Live departures board, polling the run's steps |
-| `.../runs/[runId]/report` | The report, unzipped in the browser |
+| `.../runs/[runId]/report` | The report, unzipped in the browser, with **Commit to a branch** |
+| `api/.../runs/[runId]/save` | Starts the save-tests job for that run |
 | `lib/github.ts` | GitHub REST calls, server only, with the user's token |
 | `lib/demo.ts` | Demo mode: example repos and a simulated run |
 | `lib/session.ts` | Reads the user and token from the encrypted cookie |
