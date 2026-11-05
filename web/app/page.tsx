@@ -5,6 +5,7 @@ import { Faq } from '@/components/Faq';
 import { API_SPEC, PAGES_SPEC, WORKFLOW_SNIPPET } from '@/components/landing-content';
 import { SiteHeader } from '@/components/SiteHeader';
 import { Icon } from '@/components/Sprite';
+import { WorksWith } from '@/components/WorksWith';
 import { Terminal } from '@/components/Terminal';
 import { getAccess } from '@/lib/session';
 import { NPM_URL, REPO_URL } from '@/lib/site';
@@ -52,6 +53,8 @@ export default async function Home() {
             <DemoVideo />
           </div>
         </section>
+
+        <WorksWith />
 
         <section className="section" id="how">
           <div className="sec-head">
@@ -266,6 +269,9 @@ export default async function Home() {
             <a href={NPM_URL}>npm</a>
           </nav>
         </div>
+        <p className="footer-fine">
+          Product names and logos are trademarks of their owners. Repeval is not affiliated with or endorsed by them. Logos from Simple Icons.
+        </p>
       </footer>
     </div>
   );
