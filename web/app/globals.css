@@ -87,6 +87,11 @@ code, pre, kbd { font-family: var(--mono); }
 .copied .copy-state .done { visibility: visible; }
 .copied .copy-state .idle { opacity: 0; filter: blur(2px); }
 .copied .copy-state .done { opacity: 1; filter: none; }
+.copy-icon { display: inline-grid; width: 16px; height: 16px; margin-left: 2px; color: var(--muted); }
+.copy-icon svg { grid-area: 1 / 1; width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; transition: opacity 150ms ease, transform 200ms var(--ease-out), filter 150ms ease; }
+.copy-icon .done { opacity: 0; transform: scale(.6); filter: blur(2px); color: var(--ok); stroke: var(--ok); }
+.copied .copy-icon .idle { opacity: 0; transform: scale(.6); filter: blur(2px); }
+.copied .copy-icon .done { opacity: 1; transform: none; filter: none; }
 
 /* ---------- top bars ---------- */
 .bar { display: flex; align-items: center; gap: 28px; height: 72px; }

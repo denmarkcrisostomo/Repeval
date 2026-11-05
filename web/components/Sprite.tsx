@@ -9,13 +9,14 @@ const SPRITE = `<clipPath id="emblem-gap"><rect x="15" y="-1018" width="2770" he
   <symbol id="i-yes" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></symbol>
   <symbol id="i-no" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
   <symbol id="i-chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
-  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></symbol>`;
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="11" height="11" rx="2.5"/><path d="M15.5 5.5v-.5a2 2 0 0 0-2-2h-8a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h.5"/></symbol>`;
 
 export function Sprite() {
   return <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true" dangerouslySetInnerHTML={{ __html: SPRITE }} />;
 }
 
-export function Icon({ name, className }: { name: 'gh' | 'system' | 'sun' | 'moon' | 'yes' | 'no' | 'chev' | 'search'; className?: string }) {
+export function Icon({ name, className }: { name: 'gh' | 'system' | 'sun' | 'moon' | 'yes' | 'no' | 'chev' | 'search' | 'copy'; className?: string }) {
   return (
     <svg className={className} aria-hidden="true">
       <use href={`#i-${name}`} />
