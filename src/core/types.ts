@@ -146,6 +146,8 @@ export interface TestResult {
   /** Plan target id this test covers, when known. */
   target?: string;
   file?: string;
+  /** Repo file the page, endpoint or function was found in. */
+  source?: string;
   status: TestStatus;
   message?: string;
   durationMs: number;

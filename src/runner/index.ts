@@ -172,6 +172,17 @@ export async function runTests(a: Analysis, plan: Plan, manifest: GeneratedManif
     });
   }
 
+  /* ---------- Where each thing was found ---------- */
+  const files = new Map<string, string>([
+    ...a.pages.map((x): [string, string] => [`page:${x.route}`, x.file]),
+    ...a.endpoints.map((x): [string, string] => [`api:${x.method} ${x.path}`, x.file]),
+    ...a.endpoints.map((x): [string, string] => [`load:${x.method} ${x.path}`, x.file]),
+  ]);
+  for (const t of tests) {
+    const source = t.target?.startsWith('unit:') ? t.target.slice(5).replace(/#.*$/, '') : t.target ? files.get(t.target) : t.suite === 'unit' ? t.file : undefined;
+    if (source) t.source = source;
+  }
+
   const results: RunResults = { version: 1, startedAt, finishedAt: new Date().toISOString(), suites, tests, baselines };
   writeJson(join(p.results, 'results.json'), results);
   return results;
