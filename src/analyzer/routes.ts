@@ -136,6 +136,70 @@ function serverRoutes(root: string, files: string[], r: Routes): void {
   }
 }
 
+/**
+ * NestJS: routes come from decorators, not app.get() calls.
+ *   app.setGlobalPrefix('api')                          (main.ts)
+ *   app.enableVersioning({ type: VersioningType.URI })  (optional: /v1/...)
+ *   @Controller('users') or @Controller({ path: 'users', version: '1' })
+ *     @Get(':id')  @Post()  @Render('index') -> a server-rendered page
+ * Routes set up with RouterModule are not followed.
+ */
+function nestRoutes(root: string, files: string[], r: Routes): void {
+  const code = files.filter((f) => CODE_RE.test(f) && !TEST_RE.test(f));
+  let prefix = '';
+  let uriVersioning = false;
+  let defaultVersion: string | null = null;
+  for (const f of code) {
+    const text = read(root, f);
+    const p = text.match(/\.setGlobalPrefix\(\s*(['"`])([^'"`]*)\1/);
+    if (p) prefix = p[2];
+    const v = text.match(/\.enableVersioning\(\s*\{([\s\S]*?)\}\s*\)/);
+    if (v && /VersioningType\.URI\b/.test(v[1])) {
+      uriVersioning = true;
+      defaultVersion = v[1].match(/defaultVersion\s*:\s*(['"`])([^'"`]+)\1/)?.[2] ?? null;
+    }
+  }
+
+  const join = (...parts: (string | null | undefined)[]) =>
+    '/' +
+    parts
+      .flatMap((x) => (x ?? '').split('/'))
+      .filter(Boolean)
+      .join('/');
+
+  const METHOD_RE = /@(Get|Post|Put|Patch|Delete|Head|Options|All)\(\s*(?:(['"`])([^'"`]*)\2)?\s*\)/g;
+  for (const f of code) {
+    const text = read(root, f);
+    if (!/@Controller\s*\(/.test(text)) continue;
+    // A file can hold several controllers: each one's routes run until the next @Controller.
+    const ctrls = [...text.matchAll(/@Controller\(\s*([^)]*?)\s*\)/g)];
+    ctrls.forEach((c, i) => {
+      const arg = c[1];
+      let base = '';
+      let version: string | null = null;
+      const str = arg.match(/^(['"`])([^'"`]*)\1$/);
+      if (str) base = str[2];
+      else if (arg.startsWith('{')) {
+        base = arg.match(/path\s*:\s*(['"`])([^'"`]*)\1/)?.[2] ?? '';
+        version = arg.match(/version\s*:\s*(['"`])([^'"`]+)\1/)?.[2] ?? null;
+      }
+      const v = uriVersioning ? (version ?? defaultVersion) : null;
+      const body = text.slice(c.index, ctrls[i + 1]?.index ?? text.length);
+      const methods = [...body.matchAll(METHOD_RE)];
+      methods.forEach((m, j) => {
+        const method = m[1] === 'All' ? 'GET' : m[1].toUpperCase();
+        const path = join(prefix, v ? `v${v}` : null, base, m[3]);
+        // @Render can sit above or below the route decorator: look at the whole decorator stack.
+        const before = body.slice(0, m.index);
+        const above = before.slice(Math.max(before.lastIndexOf('}'), before.lastIndexOf('{'), before.lastIndexOf(';')) + 1);
+        const below = body.slice(m.index, methods[j + 1]?.index ?? m.index + 300).split(/\)\s*(?:async\s+)?[A-Za-z_$][\w$]*\s*\(/)[0];
+        if (method === 'GET' && /@Render\(/.test(above + below)) r.pages.push({ route: path, file: f, dynamic: isDynamic(path), source: 'NestJS @Render' });
+        else r.endpoints.push({ method, path, file: f, dynamic: isDynamic(path), source: 'NestJS controller' });
+      });
+    });
+  }
+}
+
 function methodsIn(text: string): string[] {
   const methods = new Set<string>();
   for (const m of text.matchAll(METHOD_EXPORT_RE)) methods.add(m[1]);
@@ -152,6 +216,7 @@ export function findRoutes(root: string, stack: StackInfo, files: string[]): Rou
   if (hasFramework(stack, '@remix-run/react')) flatRoutes(files, r);
   if (hasFramework(stack, 'react-router', 'react-router-dom')) reactRouter(root, files, r);
   if (hasFramework(stack, 'express', 'fastify', 'hono', 'koa')) serverRoutes(root, files, r);
+  if (hasFramework(stack, '@nestjs/core')) nestRoutes(root, files, r);
 
   // A Vite (or plain) single-page app with no router still has a home page.
   if (r.pages.length === 0 && hasFramework(stack, 'vite') && files.includes('index.html'))
