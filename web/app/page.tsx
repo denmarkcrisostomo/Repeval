@@ -46,7 +46,6 @@ export default async function Home() {
               </div>
               <ul className="facts">
                 <li>Free and open source</li>
-                <li>Your code never leaves GitHub</li>
                 <li>No database, nothing stored</li>
                 <li>No AI required</li>
               </ul>
