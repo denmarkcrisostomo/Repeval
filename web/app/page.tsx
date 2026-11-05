@@ -137,7 +137,7 @@ export default async function Home() {
         <section className="section" id="keep">
           <div className="sec-head">
             <h2>Tests you can keep</h2>
-            <p>Every test Repeval writes is a normal file. Download the ones you like and commit them, and they keep checking your app on every change.</p>
+            <p>Every test Repeval writes is a normal file. Press Commit to a branch to send them all to your repo as a pull request, or download them. Once merged, they keep checking your app on every change.</p>
           </div>
           <div className="specs">
             <div className="editor" data-ui>
