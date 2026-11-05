@@ -167,8 +167,9 @@ export default async function Home() {
           </div>
           <Compare />
           <p className="cmp-humble">
-            Every tool in these categories is made by talented teams, and many do things Repeval doesn&apos;t yet. Repeval isn&apos;t trying to be the best or to
-            replace them. It&apos;s a free alternative and a second opinion, so anyone can test their code at no cost.
+            The tools in these categories are built by talented people, and many do things Repeval doesn&apos;t yet. Repeval is a small open-source project
+            made by one developer. It isn&apos;t trying to be the best or to replace them: it&apos;s a free alternative and a second opinion, so anyone can test their
+            code at no cost.
           </p>
           <div className="cmp-foot">
             <span>
