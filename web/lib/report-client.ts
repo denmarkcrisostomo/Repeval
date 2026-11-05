@@ -13,6 +13,8 @@ export interface ReportTest {
   title: string;
   target?: string;
   file?: string;
+  /** Repo file the page, endpoint or function was found in. Reports from before 0.1.4 leave it out. */
+  source?: string;
   status: TestStatus;
   message?: string;
   durationMs: number;

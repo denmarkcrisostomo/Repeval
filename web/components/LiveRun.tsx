@@ -1,12 +1,15 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { loadReport, type LoadedReport } from '@/lib/report-client';
+import { useRunView } from '@/lib/run-view';
 import { STEPS } from '@/lib/steps';
 import type { RunStatus } from '@/lib/types';
 import { clock } from '@/lib/time';
 import { Board } from './Board';
+import { RunFlow } from './RunFlowLazy';
+import { ViewSwitch } from './ViewSwitch';
 
 /** The live run screen: polls GitHub (through this site's API) and flips the board as steps finish. */
 export function LiveRun({ owner, repo, initial, pollMs }: { owner: string; repo: string; initial: RunStatus; pollMs: number }) {
@@ -17,6 +20,9 @@ export function LiveRun({ owner, repo, initial, pollMs }: { owner: string; repo:
   const [reportError, setReportError] = useState<string | null>(null);
   const base = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
   const done = run.phase === 'done';
+  const [view, setView] = useRunView();
+  // Watched live: the flow's lanes grow out when the report arrives. Opened later: they're all there at once.
+  const reveal = useRef(initial.phase !== 'done').current;
 
   // Poll until the run is done. Stops for good on sign-out or a missing run.
   useEffect(() => {
@@ -118,9 +124,14 @@ export function LiveRun({ owner, repo, initial, pollMs }: { owner: string; repo:
         </div>
       </div>
       {error && <p className="notice warn">{error}</p>}
-      <div className="live-grid">
+      <div className={'live-grid' + (view === 'flow' ? ' flow-mode' : '')}>
         <section>
-          <Board title={`${owner} / ${repo}`} steps={run.steps} done={done} />
+          <ViewSwitch view={view} onChange={setView} />
+          {view === 'flow' ? (
+            <RunFlow id="flow-live" steps={run.steps} done={done} report={report} reveal={reveal} />
+          ) : (
+            <Board title={`${owner} / ${repo}`} steps={run.steps} done={done} />
+          )}
           <div className={'result-bar' + (done ? ' show' : '')} aria-live="polite">
             {summary ? (
               <>

@@ -2,10 +2,13 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { loadReport, STATUS_CLASS, STATUS_LABEL, type LoadedReport, type ReportTest } from '@/lib/report-client';
+import { useRunView } from '@/lib/run-view';
 import type { RunStatus } from '@/lib/types';
 import { clock } from '@/lib/time';
 import { testsPullRequestUrl, TESTS_BRANCH } from '@/lib/workflow';
 import { Board } from './Board';
+import { RunFlow } from './RunFlowLazy';
+import { ViewSwitch } from './ViewSwitch';
 
 const GROUPS: { suite: ReportTest['suite']; label: string }[] = [
   { suite: 'e2e', label: 'Pages' },
@@ -40,6 +43,7 @@ export function Report({ owner, repo, run, save }: { owner: string; repo: string
   const [file, setFile] = useState(0);
   const tabs = useRef<HTMLDivElement>(null);
   const [pill, setPill] = useState({ x: 0, w: 0 });
+  const [view, setView] = useRunView();
 
   useEffect(() => {
     loadReport(owner, repo, run.id).then(
@@ -236,7 +240,16 @@ export function Report({ owner, repo, run, save }: { owner: string; repo: string
           </>
         )}
 
-        {tab === 'steps' && <Board title={`${owner} / ${repo}`} steps={run.steps} done animate={false} />}
+        {tab === 'steps' && (
+          <>
+            <ViewSwitch view={view} onChange={setView} />
+            {view === 'flow' ? (
+              <RunFlow id="flow-report" steps={run.steps} done report={report} reveal={false} />
+            ) : (
+              <Board title={`${owner} / ${repo}`} steps={run.steps} done animate={false} />
+            )}
+          </>
+        )}
       </div>
     </>
   );
