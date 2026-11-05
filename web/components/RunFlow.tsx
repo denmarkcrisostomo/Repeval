@@ -21,7 +21,7 @@ import type { RunStep } from '@/lib/types';
 // The run as a flow diagram (React Flow, MIT). Each page, endpoint and function gets its own lane,
 // left to right through the six stages: found → planned or skipped → test file → result → screenshot and report.
 // While the run is on GitHub only the stages are known, so a stage's box appears when it starts.
-// Once the report arrives, the lanes grow out stage by stage.
+// Once the report arrives, the lanes grow out stage by stage, and the first possible bug is lit up.
 
 const STAGES = [
   { id: 'collect', no: '①', name: 'Collect', text: 'GitHub copies your repo onto a fresh, temporary machine and installs Node 22. Repeval never receives your code.' },
@@ -449,6 +449,7 @@ export default function RunFlow({ id, steps, done, report, reveal }: RunFlowProp
   const [expanded, setExpanded] = useState<Partial<Record<Group, boolean>>>({});
   const [selected, setSelected] = useState<string | null>(null);
   const [note, setNote] = useState<{ title: string; text: string } | null>(null);
+  const autoPicked = useRef(false);
 
   // Grow the lanes once the report is here.
   useEffect(() => {
@@ -499,6 +500,32 @@ export default function RunFlow({ id, steps, done, report, reveal }: RunFlowProp
     const tm = setTimeout(() => frameRef.current(true), 60);
     return () => clearTimeout(tm);
   }, [g.nodes.length, g.latestCol]);
+
+  // When the run is over and every lane is in, light up the first possible bug (or broken test).
+  useEffect(() => {
+    if (!model || !done || t < 1 || autoPicked.current) return;
+    autoPicked.current = true;
+    const first = model.lanes.find((l) => l.result === 'bug') ?? model.lanes.find((l) => l.result === 'broken');
+    if (!first) return;
+    const inGroup = model.lanes.filter((l) => l.group === first.group);
+    if (inGroup.length > LIMIT && inGroup.indexOf(first) >= LIMIT - 1) setExpanded((x) => ({ ...x, [first.group]: true }));
+    setSelected('result:' + first.id);
+    setNote({ title: `${first.label}: ${first.result === 'bug' ? 'possible bug' : 'broken test'}`, text: first.resultInfo ?? '' });
+  }, [model, done, t]);
+
+  // On phones, move the view to the lit-up result.
+  useEffect(() => {
+    if (!selected?.startsWith('result:')) return;
+    const tm = setTimeout(() => {
+      const i = inst.current;
+      const w = wrap.current?.clientWidth ?? 0;
+      const n = i?.getNode(selected);
+      if (!i || !n || w >= 700) return;
+      const duration = matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 450;
+      i.setCenter(n.position.x + W / 2, n.position.y + 23, { zoom: 0.62, duration });
+    }, 520);
+    return () => clearTimeout(tm);
+  }, [selected]);
 
   const lane = selected ? lit(selected, g.lanesOf) : null;
   const nodes = lane
