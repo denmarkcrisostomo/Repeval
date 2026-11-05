@@ -4,14 +4,15 @@ import { useEffect, useState } from 'react';
 import { Icon } from './Sprite';
 
 type Choice = 'system' | 'light' | 'dark';
-const CHOICES: { v: Choice; label: string; title: string; icon: 'system' | 'sun' | 'moon' }[] = [
-  { v: 'system', label: 'Use system theme', title: 'System', icon: 'system' },
-  { v: 'light', label: 'Light theme', title: 'Light', icon: 'sun' },
-  { v: 'dark', label: 'Dark theme', title: 'Dark', icon: 'moon' },
-];
+const ORDER: Choice[] = ['system', 'light', 'dark'];
+const NAME: Record<Choice, string> = { system: 'System', light: 'Light', dark: 'Dark' };
+const ICON: Record<Choice, 'system' | 'sun' | 'moon'> = { system: 'system', light: 'sun', dark: 'moon' };
 const KEY = 'repeval-theme';
 
-/** System (default), Light or Dark. The choice is a per-browser convenience kept in localStorage. */
+/**
+ * One button that cycles System (default) → Light → Dark. The icons are stacked and the
+ * current one morphs into the next. The choice is a per-browser convenience kept in localStorage.
+ */
 export function ThemeSwitch() {
   const [choice, setChoice] = useState<Choice>('system');
 
@@ -24,6 +25,7 @@ export function ThemeSwitch() {
     }
   }, []);
 
+  const next = ORDER[(ORDER.indexOf(choice) + 1) % ORDER.length];
   const apply = (c: Choice) => {
     setChoice(c);
     const root = document.documentElement;
@@ -36,37 +38,21 @@ export function ThemeSwitch() {
     }
   };
 
-  const index = CHOICES.findIndex((c) => c.v === choice);
   return (
-    <div
+    <button
+      type="button"
       className="theme"
-      role="radiogroup"
-      aria-label="Theme"
-      onKeyDown={(e) => {
-        if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-        const next = CHOICES[(index + (e.key === 'ArrowRight' ? 1 : CHOICES.length - 1)) % CHOICES.length];
-        apply(next.v);
-        (e.currentTarget.querySelector(`[data-v="${next.v}"]`) as HTMLButtonElement | null)?.focus();
-        e.preventDefault();
-      }}
+      data-v={choice}
+      onClick={() => apply(next)}
+      aria-label={`Theme: ${NAME[choice]}. Switch to ${NAME[next]}`}
+      title={`Theme: ${NAME[choice]}`}
     >
-      <span className="pill-bg" aria-hidden="true" style={{ transform: `translateX(${index * 32}px)` }} />
-      {CHOICES.map((c) => (
-        <button
-          key={c.v}
-          type="button"
-          role="radio"
-          data-v={c.v}
-          aria-checked={choice === c.v}
-          tabIndex={choice === c.v ? 0 : -1}
-          aria-label={c.label}
-          title={c.title}
-          onClick={() => apply(c.v)}
-        >
-          <Icon name={c.icon} />
-        </button>
+      {ORDER.map((c) => (
+        // Which icon shows comes from <html data-scheme>, set before first paint, so a saved
+        // theme never animates in on load.
+        <Icon key={c} name={ICON[c]} className={`t-${c}`} />
       ))}
-    </div>
+    </button>
   );
 }
 

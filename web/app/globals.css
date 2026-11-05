@@ -111,13 +111,12 @@ code, pre, kbd { font-family: var(--mono); }
 .app-tabs a[aria-current] { color: var(--ink); background: var(--soft); }
 .me { width: 32px; height: 32px; border-radius: 50%; background: var(--s-teal-deep); color: var(--s-teal-ink); display: grid; place-items: center; font-weight: 700; font-size: 13px; flex: none; }
 
-/* theme switch: three options with a sliding pill */
-.theme { position: relative; display: inline-flex; padding: 3px; border-radius: 999px; background: var(--soft); flex: none; }
-.theme button { position: relative; z-index: 1; width: 32px; height: 30px; display: grid; place-items: center; border: 0; background: none; border-radius: 999px; color: var(--muted); cursor: pointer; transition: color 150ms ease; }
-.theme button::before { content: ""; position: absolute; inset: -5px -2px; }
-.theme button[aria-checked="true"] { color: var(--ink); }
-.theme svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-.theme .pill-bg { position: absolute; top: 3px; left: 3px; width: 32px; height: 30px; border-radius: 999px; background: var(--surface); box-shadow: 0 1px 3px rgba(0,0,0,.18); transition: transform 250ms var(--ease-smooth); }
+/* theme switch: one button; the current icon morphs into the next */
+.theme { position: relative; display: grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 0; border-radius: 999px; background: var(--soft); color: var(--ink); cursor: pointer; flex: none; transition: transform 160ms var(--ease-out); }
+.theme::before { content: ""; position: absolute; inset: -4px; }
+.theme:active { transform: scale(.94); }
+.theme svg { grid-area: 1 / 1; width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; opacity: 0; transform: rotate(-90deg) scale(.5); filter: blur(3px); transition: opacity 200ms ease, transform 350ms var(--ease-smooth), filter 200ms ease; }
+:root:not([data-scheme]) .theme .t-system, :root[data-scheme="light"] .theme .t-light, :root[data-scheme="dark"] .theme .t-dark { opacity: 1; transform: none; filter: none; }
 
 /* ---------- the departures board ---------- */
 .board { background: var(--board); color: var(--flap-ink); border-radius: 14px; padding: 20px; }
@@ -462,7 +461,7 @@ footer.site { padding-block: 96px 40px; }
   .page-in, .result-bar.show { animation: fade 150ms ease both; }
   @keyframes fade { from { opacity: 0; } }
   .c.flip, .row.running .st .c, .spinner, .term .cursor { animation: none; }
-  .shot, .theme .pill-bg, .tabs .tab-pill, .faq-panel, .test-body, .faq-item svg { transition: opacity 150ms ease; }
+  .shot, .theme svg, .tabs .tab-pill, .faq-panel, .test-body, .faq-item svg { transition: opacity 150ms ease; }
   .shot { transform: none; filter: none; }
   .toast { transition: opacity 150ms ease; transform: translate(-50%, 0); filter: none; }
   .found.show .check, .found.show .check path { animation: none; stroke-dashoffset: 0; }
@@ -500,7 +499,6 @@ footer.site { padding-block: 96px 40px; }
 .repo-pill b { overflow: hidden; text-overflow: ellipsis; max-width: 22ch; }
 .app-bar nav.app-tabs { margin-left: 4px; }
 @media (max-width: 640px) {
-  .app-bar .theme { display: none; }
   .app-bar .repo-pill b { max-width: 12ch; }
   .signout { white-space: nowrap; }
   .demo-band span { display: none; }
