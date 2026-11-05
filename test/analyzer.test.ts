@@ -99,3 +99,29 @@ describe('analyzer: next-app', () => {
     expect(a.skippedFiles.map((s) => s.file)).toContain('app/page.tsx');
   });
 });
+
+describe('analyzer: NestJS routes', () => {
+  const a = analyze(join(__dirname, 'fixtures', 'nest-api'));
+
+  it('finds controller routes with the global prefix and URI versions', () => {
+    expect(a.endpoints.map((e) => `${e.method} ${e.path}`)).toEqual([
+      'GET /api/v1/admin/users/count',
+      'GET /api/v1/health',
+      'GET /api/v2/users',
+      'POST /api/v2/users',
+      'DELETE /api/v2/users/:id',
+      'GET /api/v2/users/:id',
+    ]);
+    expect(a.endpoints.find((e) => e.path === '/api/v2/users/:id')?.dynamic).toBe(true);
+  });
+
+  it('treats @Render routes as pages, whichever order the decorators are in', () => {
+    expect(a.pages.map((p) => p.route)).toEqual(['/api/v1', '/api/v1/about']);
+    expect(a.pages.every((p) => p.source === 'NestJS @Render')).toBe(true);
+  });
+
+  it('finds how to start it', () => {
+    expect(a.boot.command).toContain('start');
+    expect(a.boot.port).toBe(3000);
+  });
+});
