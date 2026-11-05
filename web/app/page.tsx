@@ -174,7 +174,6 @@ export default async function Home() {
             <span>
               Comparison as of November 2026. Tools change; if something here looks wrong, <a href={`${REPO_URL}/issues`}>tell us on GitHub</a>.
             </span>
-            <a href="#privacy">How your code stays private ↓</a>
           </div>
         </section>
 
