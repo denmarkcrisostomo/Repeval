@@ -144,7 +144,7 @@ code, pre, kbd { font-family: var(--mono); }
 .board-foot a { color: var(--s-teal-ink); }
 
 /* ---------- landing ---------- */
-.hero { padding: 48px 0 0; }
+.hero { padding: clamp(48px, 7vw, 112px) 0 clamp(40px, 5vw, 88px); }
 .hero h1 { margin: 0 0 28px; font-weight: 800; font-stretch: 75%; font-size: clamp(56px, 6.4vw, 104px); line-height: 0.9; letter-spacing: -0.03em; }
 .hero-grid { display: grid; grid-template-columns: minmax(0, 6fr) minmax(0, 6fr); gap: 56px; align-items: center; }
 .lede { margin: 0; font-size: 20px; max-width: 34ch; }
@@ -426,7 +426,7 @@ footer.site { padding-block: 96px 40px; }
 .toast.show { transform: translate(-50%, 0); opacity: 1; filter: none; }
 .toast.hiding { transition-duration: 250ms; }
 /* ---------- "Works with" banner ---------- */
-.works { display: flex; align-items: center; gap: 28px; margin-top: 40px; padding: 22px 0; border-top: 1px solid var(--soft); border-bottom: 1px solid var(--soft); }
+.works { display: flex; align-items: center; gap: 28px; margin-top: 0; padding: 22px 0; border-top: 1px solid var(--soft); border-bottom: 1px solid var(--soft); }
 .works-label { margin: 0; flex: none; color: var(--muted); font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
 .marquee { flex: 1; min-width: 0; overflow: hidden; -webkit-mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent); mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent); }
 .marquee-track { display: flex; width: max-content; margin: 0; padding: 0; list-style: none; animation: marquee 45s linear infinite; }
