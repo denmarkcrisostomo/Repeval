@@ -16,8 +16,8 @@
   --font: var(--font-archivo), "Helvetica Neue", Arial, sans-serif;
   --mono: var(--font-jetbrains), ui-monospace, "SFMono-Regular", Menlo, monospace;
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1); --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1); --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);
-  /* Side spacing grows on wide screens so content never gets wider than about 1360px. */
-  --gutter: max(20px, 3vw, calc((100vw - 1360px) / 2));
+  /* Side spacing grows on wide screens: three quarters of the space left around a 1360px column. */
+  --gutter: max(20px, 3vw, calc((100vw - 1360px) * .375));
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
