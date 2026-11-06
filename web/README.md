@@ -61,7 +61,7 @@ Import the repository, set **Root Directory** to `web`, and add the variables ab
 | `app/signin` | Explains the permissions, then signs in with GitHub (or the demo) |
 | `app/repos` | Repos the user allowed, with whether each has the workflow file |
 | `app/repos/[owner]/[repo]` | Adds the workflow (GitHub's own prefilled "new file" page) or starts a run |
-| `app/repos/[owner]/[repo]/runs/[runId]` | Live departures board, polling the run's steps |
+| `app/repos/[owner]/[repo]/runs/[runId]` | Live run as a flow diagram, polling the run's steps and its names-only progress |
 | `.../runs/[runId]/report` | The report, unzipped in the browser, with **Commit to a branch** |
 | `api/.../runs/[runId]/save` | Starts the save-tests job for that run |
 | `lib/github.ts` | GitHub REST calls, server only, with the user's token |
