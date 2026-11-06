@@ -23,14 +23,14 @@ function paths(root: string, opts: CommonOptions): Paths {
   return p;
 }
 
-/* ---------- ① + ② Analyze ---------- */
+/* ---------- Collect + Understand: analyze ---------- */
 
 export function doAnalyze(root: string, opts: CommonOptions = {}): Analysis {
   const p = paths(root, opts);
-  log.step(1, 'Collect files');
+  log.step('Collect files');
   const a = analyze(p.root);
   log.item('Scanned', `${a.sourceFiles} source files, ${a.testFiles.length} existing tests`);
-  log.step(2, 'Understand the repo');
+  log.step('Understand the repo');
   log.item('Stack', [a.stack.language, ...a.stack.frameworks.map((f) => f.label)].join(', '));
   log.item('Functions', `${a.functions.length} exported, ${a.functions.filter((f) => f.callable).length} callable with samples`);
   log.item('Pages', a.pages.map((x) => x.route).join('  ') || 'none');
@@ -47,7 +47,7 @@ function loadAnalysis(p: Paths, opts: CommonOptions): Analysis {
   return readJson<Analysis>(p.analysis) ?? doAnalyze(p.root, opts);
 }
 
-/* ---------- ③ Plan ---------- */
+/* ---------- Plan ---------- */
 
 export interface PlanOptions extends CommonOptions {
   tests?: TestsFilter;
@@ -57,7 +57,7 @@ export interface PlanOptions extends CommonOptions {
 export async function doPlan(root: string, opts: PlanOptions = {}): Promise<Plan> {
   const p = paths(root, opts);
   const a = loadAnalysis(p, opts);
-  log.step(3, 'Plan');
+  log.step('Plan');
   let plan = buildPlan(a, opts.tests ?? 'all');
   if (opts.interactive) {
     if (process.stdin.isTTY) plan = await reviewPlan(plan);
@@ -81,7 +81,7 @@ function loadPlan(p: Paths, opts: CommonOptions): Promise<Plan> | Plan {
   return parsed.data;
 }
 
-/* ---------- ④ Generate ---------- */
+/* ---------- Make tests: generate ---------- */
 
 export interface GenerateOptions extends CommonOptions {
   ai?: string;
@@ -91,7 +91,7 @@ export async function doGenerate(root: string, opts: GenerateOptions = {}): Prom
   const p = paths(root, opts);
   const a = loadAnalysis(p, opts);
   const plan = await loadPlan(p, opts);
-  log.step(4, 'Make tests');
+  log.step('Make tests');
   const ai = (opts.ai ?? 'none').trim() || 'none';
   if (ai !== 'none') log.warn(`AI mode ("${ai}") is not available in this version yet. Using the template writer.`);
   const manifest = generateTests(a, plan, p, ai);
@@ -102,7 +102,7 @@ export async function doGenerate(root: string, opts: GenerateOptions = {}): Prom
   return manifest;
 }
 
-/* ---------- ⑤ + ⑥ Test and report ---------- */
+/* ---------- Run + Results: test and report ---------- */
 
 export interface TestOptions extends CommonOptions {
   install?: boolean;
@@ -117,13 +117,13 @@ export async function doTest(root: string, opts: TestOptions = {}): Promise<{ re
   const plan = await loadPlan(p, opts);
   const manifest = readJson<GeneratedManifest>(p.generated) ?? (await doGenerate(p.root, opts));
 
-  log.step(5, 'Run');
+  log.step('Run');
   const results = await runTests(a, plan, manifest, p, {
     install: opts.install ?? true,
     updateBaselines: opts.updateBaselines ?? false,
   });
 
-  log.step(6, 'Results');
+  log.step('Results');
   const data = writeReport(a, plan, manifest, results, p);
   if (opts.card !== false) await captureSummaryCard(p).catch(() => undefined);
   const s = data.summary;

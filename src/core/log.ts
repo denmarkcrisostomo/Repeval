@@ -1,10 +1,8 @@
 import pc from 'picocolors';
 
-const STEP_NUMBERS = ['①', '②', '③', '④', '⑤', '⑥'];
-
 export const log = {
-  step(n: number, title: string): void {
-    console.log('\n' + pc.bold(pc.cyan(`${STEP_NUMBERS[n - 1] ?? n} ${title}`)));
+  step(title: string): void {
+    console.log('\n' + pc.bold(pc.cyan(title)));
   },
   info(msg: string): void {
     console.log('  ' + msg);

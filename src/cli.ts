@@ -44,7 +44,7 @@ program
 
 program
   .command('analyze')
-  .description('① ② Read the repo: stack, functions, pages, APIs and how to start it')
+  .description('Read the repo: stack, functions, pages, APIs and how to start it')
   .argument('[dir]', 'project folder', '.')
   .action((dir) => {
     doAnalyze(dir);
@@ -52,7 +52,7 @@ program
 
 program
   .command('plan')
-  .description('③ Decide what to test (writes .repeval/repeval-plan.json)')
+  .description('Decide what to test (writes .repeval/repeval-plan.json)')
   .argument('[dir]', 'project folder', '.')
   .addOption(testsOption())
   .option('-i, --interactive', 'tick or untick targets in a checklist')
@@ -62,7 +62,7 @@ program
 
 program
   .command('generate')
-  .description('④ Write the test files into .repeval/')
+  .description('Write the test files into .repeval/')
   .argument('[dir]', 'project folder', '.')
   .addOption(aiOption())
   .action(async (dir, o) => {
@@ -71,7 +71,7 @@ program
 
 program
   .command('test')
-  .description('⑤ ⑥ Run the generated tests and write the report')
+  .description('Run the generated tests and write the report')
   .argument('[dir]', 'project folder', '.')
   .addOption(outOption())
   .addOption(failOnOption())
