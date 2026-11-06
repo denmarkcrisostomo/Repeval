@@ -595,6 +595,12 @@ footer.site { padding-block: 96px 40px; }
 .film-dots { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .film-dots circle { fill: var(--film-dot); }
 .film-stage { position: absolute; left: 0; top: 0; width: 1280px; height: 600px; transform: scale(var(--k)); transform-origin: 0 0; font-family: var(--font); }
+.film-centre { position: absolute; left: 0; top: 0; width: 100%; height: 600px; }
+/* Beside the hero text, the flow is exactly as tall as the text: from the top of the heading to the last line of facts. */
+@media (min-width: 1001px) {
+  .hero-grid .hero-video { align-self: stretch; display: flex; flex-direction: column; margin: 0; }
+  .hero-grid .hero-video .film { flex: 1; aspect-ratio: auto; min-height: 320px; }
+}
 .film-world { position: absolute; left: 0; top: 0; width: 1560px; height: 980px; transform-origin: 0 0; }
 .film-world .fhd, .film-world .fb, .film-world .fsh, .film-world .fgl, .film-world .fst { position: absolute; opacity: 0; }
 /* A stage: a box in the chain, amber while running, then its result. */
@@ -661,6 +667,6 @@ footer.site { padding-block: 96px 40px; }
 @media (hover: hover) { .film-controls button:not(:disabled):hover { background: var(--soft); } }
 .film-controls svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 /* Full screen: the flow centred on the page background. */
-.hero-video:fullscreen { display: grid; place-items: center; margin: 0; padding: 32px; background: var(--ground); }
-.hero-video:fullscreen .film { width: min(100%, calc((100vh - 64px) * 1280 / 600)); }
+.hero-video:fullscreen { display: flex; flex-direction: column; margin: 0; padding: 32px; background: var(--ground); }
+.hero-video:fullscreen .film { flex: 1; width: 100%; aspect-ratio: auto; }
 .hero-video:fullscreen .film-controls { right: 24px; bottom: 24px; }

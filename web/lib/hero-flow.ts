@@ -165,12 +165,14 @@ function markup() {
   // React Flow's dotted background, drawn the way React Flow draws it: an SVG pattern in screen pixels.
   return `<svg class="film-dots" aria-hidden="true"><pattern id="film-dot-grid" patternUnits="userSpaceOnUse"><circle/></pattern><rect width="100%" height="100%" fill="url(#film-dot-grid)"/></svg>
 <div class="film-stage" role="group" aria-label="A run of the demo shop as a flow. Tap a box to follow it, drag to look around.">
+  <div class="film-centre">
   <div class="film-world" style="width:${WORLD_W}px">
     <svg class="film-lines" width="${WORLD_W}" height="${H}" aria-hidden="true"><defs>${['ok', 'bug', 'skip'].map(marker).join('')}</defs>${LINES.map(
       (l) => `<path data-line="${l.id}" d="${l.d}" class="film-line ${l.tone}" marker-end="url(#film-arrow-${l.tone})"/>`,
     ).join('')}</svg>
     ${BOXES.map(boxHtml).join('')}
     <i class="film-sel" aria-hidden="true"></i>
+  </div>
   </div>
 </div>`;
 }
@@ -264,10 +266,18 @@ export function mountHeroFlow(el: HTMLElement, loadAnime: () => Promise<Anime>, 
     off.push(() => t.removeEventListener(type, fn));
   };
 
+  // The stage is always 1280 wide, scaled to the box. Its height follows the box (in the hero, as tall as the
+  // text beside it); the chain stays centred in it, so a taller box only adds room above and below.
+  const centre = el.querySelector<HTMLElement>('.film-centre')!;
   let k = 0.5;
+  let offY = 0;
   const ro = new ResizeObserver(() => {
     k = el.clientWidth / W;
+    const stageH = el.clientHeight / k || H;
+    offY = (stageH - H) / 2;
     el.style.setProperty('--k', String(k));
+    stageEl.style.height = `${stageH}px`;
+    centre.style.top = `${offY}px`;
     syncDots();
   });
   ro.observe(el);
@@ -307,7 +317,7 @@ export function mountHeroFlow(el: HTMLElement, loadAnime: () => Promise<Anime>, 
     const gap = 20 * z;
     const r = (1.6 * z) / 2;
     pattern.setAttribute('x', String((m.e * k) % gap));
-    pattern.setAttribute('y', String((m.f * k) % gap));
+    pattern.setAttribute('y', String(((m.f + offY) * k) % gap));
     pattern.setAttribute('width', String(gap));
     pattern.setAttribute('height', String(gap));
     pattern.setAttribute('patternTransform', `translate(-${r},-${r})`);
