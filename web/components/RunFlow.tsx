@@ -10,6 +10,7 @@ import {
   ReactFlow,
   type Edge,
   type Node,
+  type NodeChange,
   type NodeProps,
   type ReactFlowInstance,
 } from '@xyflow/react';
@@ -511,6 +512,13 @@ export default function RunFlow({ id, steps, done, progress, report, reveal }: R
   const [selected, setSelected] = useState<string | null>(null);
   const [note, setNote] = useState<{ title: string; text: string } | null>(null);
   const autoPicked = useRef(false);
+  // React Flow takes each box's size from the node objects it is handed, and hides a box until it knows
+  // its size. The diagram is rebuilt on every update, so the sizes it measured are kept here and handed
+  // back; otherwise boxes would vanish and re-measure each time, and stay hidden while a run keeps updating.
+  const sizes = useRef(new Map<string, { width: number; height: number }>());
+  const keepSizes = (changes: NodeChange<FNode>[]) => {
+    for (const c of changes) if (c.type === 'dimensions' && c.dimensions) sizes.current.set(c.id, c.dimensions);
+  };
 
   // Grow the lanes up to where the data reaches, at a steady pace: each new progress file or the report
   // moves the goal further, and the diagram catches up stage by stage.
@@ -596,9 +604,11 @@ export default function RunFlow({ id, steps, done, progress, report, reveal }: R
   }, [selected]);
 
   const lane = selected ? lit(selected, g.lanesOf) : null;
-  const nodes = lane
-    ? g.nodes.map((n) => (n.type === 'head' || n.type === 'glabel' ? n : { ...n, data: { ...n.data, dim: !lane.has(n.id), sel: n.id === selected } }))
-    : g.nodes;
+  const nodes = g.nodes.map((n) => {
+    const measured = sizes.current.get(n.id);
+    const data = lane && n.type !== 'head' && n.type !== 'glabel' ? { ...n.data, dim: !lane.has(n.id), sel: n.id === selected } : n.data;
+    return { ...n, data, ...(measured ? { measured } : {}) };
+  });
   const edges = g.edges.map((e) => {
     const st = e.data!.state;
     const off = !!lane && !e.id.startsWith('h:') && !(lane.has(e.source) && lane.has(e.target));
@@ -636,6 +646,7 @@ export default function RunFlow({ id, steps, done, progress, report, reveal }: R
             inst.current = i;
             frame(false);
           }}
+          onNodesChange={keepSizes}
           onNodeClick={(_, n) => choose(n)}
           onPaneClick={() => {
             setSelected(null);
