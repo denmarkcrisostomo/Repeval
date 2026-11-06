@@ -229,8 +229,14 @@ export async function getRunStatus(token: string, owner: string, repo: string, r
     ...ghSteps.filter((s) => s.status === 'completed' && s.conclusion === 'success').map((s) => SHARE_STEP[s.name.trim().toLowerCase()] ?? 0),
   );
   if (shared <= checked) return { ...summary, steps, hasReport, progressChecked: checked };
-  const progress = await fetchProgress(token, owner, repo, runId, shared).catch(() => null);
-  return { ...summary, steps, hasReport, progressChecked: shared, ...(progress ? { progress } : {}) };
+  try {
+    // null: the run shared nothing (its Repeval is older than 0.1.4). Then the browser stops asking for this stage.
+    const progress = await fetchProgress(token, owner, repo, runId, shared);
+    return { ...summary, steps, hasReport, progressChecked: shared, ...(progress ? { progress } : {}) };
+  } catch {
+    // GitHub hiccup: leave `checked` as it was so the next poll tries again.
+    return { ...summary, steps, hasReport, progressChecked: checked };
+  }
 }
 
 /* ---------- the report artifact ---------- */
