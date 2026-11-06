@@ -34,7 +34,8 @@ export function LiveRun({ owner, repo, initial, pollMs }: { owner: string; repo:
     let timer: ReturnType<typeof setTimeout>;
     const tick = async () => {
       try {
-        const res = await fetch(`/api${base}/runs/${encodeURIComponent(run.id)}?p=${checked.current}`, { cache: 'no-store' });
+        const before = checked.current;
+        const res = await fetch(`/api${base}/runs/${encodeURIComponent(run.id)}?p=${before}`, { cache: 'no-store' });
         const body = await res.json();
         if (!res.ok) {
           setError(body.error ?? 'GitHub did not answer.');
@@ -103,6 +104,11 @@ export function LiveRun({ owner, repo, initial, pollMs }: { owner: string; repo:
         : `Every page was opened and checked. ${summary.passed} tests passed.`;
     else if (!run.hasReport) nowText = 'The run ended without a report. The run on GitHub shows what happened.';
     else nowText = 'Loading the report from GitHub.';
+  } else if (run.phase === 'running' && finished > 0) {
+    // Between two of the board's steps, e.g. while the workflow shares its progress.
+    const last = [...STEPS].reverse().find((s) => run.steps.find((x) => x.key === s.key)?.state === 'passed');
+    nowStep = last ? `${last.name} done` : 'Between steps';
+    nowText = 'Saving what this step found and starting the next one.';
   } else if (run.phase === 'running') {
     nowStep = 'Starting';
     nowText = 'The machine is ready and the first step is starting.';
