@@ -8,6 +8,7 @@ import { writeReport } from '../reporter/index.js';
 import { captureSummaryCard } from '../reporter/card.js';
 import { runTests } from '../runner/index.js';
 import { log } from './log.js';
+import { progressAnalyzed, progressGenerated, progressPlanned } from './progress.js';
 import { ensureWorkDir, getPaths, packageFile, readJson, writeJson, writeText, type Paths } from './paths.js';
 import { PlanSchema, type Analysis, type GeneratedManifest, type Plan, type RunResults, type TestsFilter } from './types.js';
 
@@ -38,6 +39,7 @@ export function doAnalyze(root: string, opts: CommonOptions = {}): Analysis {
   const missing = a.boot.envVars.filter((e) => !e.present).map((e) => e.name);
   if (missing.length) log.warn(`Env vars from .env.example that are not set: ${missing.join(', ')}`);
   writeJson(p.analysis, a);
+  progressAnalyzed(a, p);
   return a;
 }
 
@@ -67,6 +69,7 @@ export async function doPlan(root: string, opts: PlanOptions = {}): Promise<Plan
   const skipped = plan.targets.length - on.length;
   if (skipped) log.dim(`${skipped} skipped. Reasons are in .repeval/repeval-plan.json and in the report.`);
   writeJson(p.plan, plan);
+  progressPlanned(plan);
   return plan;
 }
 
@@ -95,6 +98,7 @@ export async function doGenerate(root: string, opts: GenerateOptions = {}): Prom
   const tests = manifest.files.filter((f) => f.kind === 'unit' || f.kind === 'e2e' || f.kind === 'api');
   log.item('Wrote', `${tests.length} test files in .repeval/`);
   for (const f of tests) log.dim(`${f.framework.padEnd(10)} ${f.path}`);
+  progressGenerated(manifest);
   return manifest;
 }
 
