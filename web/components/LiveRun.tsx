@@ -17,6 +17,8 @@ export function LiveRun({ owner, repo, initial, pollMs }: { owner: string; repo:
   // Names-only progress from workflow v3: lets the flow grow its lanes while the run is still going.
   const [progress, setProgress] = useState<Progress | null>(initial.progress ?? null);
   const checked = useRef(initial.progressChecked ?? 0);
+  // The run reached a share step but had nothing to share: its Repeval predates live progress.
+  const [noProgress, setNoProgress] = useState(!!initial.progressChecked && !initial.progress);
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState<number | null>(null);
   const [report, setReport] = useState<LoadedReport | null>(null);
@@ -45,6 +47,7 @@ export function LiveRun({ owner, repo, initial, pollMs }: { owner: string; repo:
           const next = body as RunStatus;
           if (next.progressChecked) checked.current = Math.max(checked.current, next.progressChecked);
           if (next.progress) setProgress(next.progress);
+          else if ((next.progressChecked ?? 0) > before) setNoProgress(true);
           setRun(next);
           if ((body as RunStatus).phase === 'done') return;
         }
@@ -139,6 +142,12 @@ export function LiveRun({ owner, repo, initial, pollMs }: { owner: string; repo:
       <div className={'live-grid' + (view === 'flow' ? ' flow-mode' : '')}>
         <section>
           <ViewSwitch view={view} onChange={setView} />
+          {view === 'flow' && noProgress && !progress && !report && (
+            <p className="notice flow-hint">
+              This run&apos;s Repeval doesn&apos;t share its progress, so each page, endpoint and function appears when the report is ready. Live boxes
+              need Repeval 0.1.4 or later and workflow v3.
+            </p>
+          )}
           {view === 'flow' ? (
             <RunFlow id="flow-live" steps={run.steps} done={done} progress={progress} report={report} reveal={reveal} />
           ) : (

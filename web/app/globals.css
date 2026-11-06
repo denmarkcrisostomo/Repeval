@@ -616,3 +616,4 @@ footer.site { padding-block: 96px 40px; }
 @keyframes node-in { from { opacity: 0; filter: blur(3px); } }
 @media (prefers-reduced-motion: reduce) { .fh.running .fh-text i, .fh, .fg, .fm, .fi, .fs { animation: none; } .flow, .flow .react-flow__node { transition: none; } }
 @media (max-width: 640px) { .flow { height: 620px; } .flow.compact { height: 200px; } }
+.flow-hint { margin: 0 0 12px; }
