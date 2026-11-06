@@ -79,7 +79,7 @@ This adds `.github/workflows/repeval.yml`. Read it before committing:
 - The Repeval version is pinned.
 - AI keys (for later) come from your repo's own secrets.
 
-The report is uploaded as a run artifact and kept for 7 days.
+The report is uploaded as a run artifact and kept for 7 days. After Analyze, Plan and Generate, the workflow also saves a small names-only progress file (file paths, routes, function names and skip reasons, no code) for one day, so the website can draw the run while it goes.
 
 The Repeval website starts this workflow for you. Tests run on GitHub's machines, and the website has no permission to read your code.
 
