@@ -193,21 +193,6 @@ export function LiveRun({ owner, repo, initial, pollMs }: { owner: string; repo:
               <i style={{ transform: `scaleX(${done ? 1 : finished / STEPS.length})`, background: done && bugs ? 'var(--bug)' : undefined, transition: 'transform 400ms var(--ease-smooth)' }} />
             </div>
           </div>
-          <div className="card">
-            <h2>The six stages</h2>
-            <ol className="stage-list">
-              {['Collect', 'Understand', 'Plan', 'Make tests', 'Run', 'Results'].map((stage) => {
-                const inStage = STEPS.filter((s) => s.stage === stage).map((s) => run.steps.find((x) => x.key === s.key)?.state ?? 'waiting');
-                const state = inStage.includes('failed') ? 'bug' : inStage.every((s) => s === 'passed') ? 'ok' : inStage.includes('running') || inStage.includes('passed') ? 'run' : 'skip';
-                return (
-                  <li key={stage}>
-                    <span className={`dot ${state}`} aria-hidden="true" />
-                    {stage}
-                  </li>
-                );
-              })}
-            </ol>
-          </div>
         </aside>
       </div>
     </>
