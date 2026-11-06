@@ -3,8 +3,10 @@
 export const WORKFLOW_PATH = '.github/workflows/repeval.yml';
 export const WORKFLOW_FILE = 'repeval.yml';
 export const ARTIFACT_NAME = 'repeval-report';
+/** Names-only progress files the workflow saves after Analyze (1), Plan (2) and Generate (3). */
+export const PROGRESS_ARTIFACT = 'repeval-progress-';
 /** The workflow's name. Bump the version here and in templates/repeval.yml when the file changes. */
-export const WORKFLOW_NAME = 'Repeval (workflow v2)';
+export const WORKFLOW_NAME = 'Repeval (workflow v3)';
 /** run-name of the save-tests runs, so they can be left out of the run history. */
 export const SAVE_RUN_TITLE = 'Save Repeval tests to a branch';
 export const TESTS_BRANCH = 'repeval-tests';
@@ -12,9 +14,11 @@ export const TESTS_BRANCH = 'repeval-tests';
 export const WORKFLOW_YAML = `# .github/workflows/repeval.yml
 # Repeval generates and runs tests for this repo.
 # It only runs when you start it (from the Actions tab or the Repeval website).
-# "repeval@0.1" picks up bug-fix releases by itself. The "v2" in the name tells the
+# "repeval@0.1" picks up bug-fix releases by itself. The "v3" in the name tells the
 # Repeval website which version of this file the repo has, so it can offer updates.
-name: Repeval (workflow v2)
+# After Analyze, Plan and Generate it saves a small names-only progress file (file paths,
+# routes, function names, no code) for one day, so the website can draw the run as it goes.
+name: Repeval (workflow v3)
 run-name: \${{ inputs.save_from_run && 'Save Repeval tests to a branch' || 'Repeval' }}
 
 on:
@@ -60,11 +64,32 @@ jobs:
 
       - name: Analyze
         run: npx --yes repeval@0.1 analyze
+        env:
+          REPEVAL_PROGRESS: \${{ runner.temp }}/repeval-progress
+
+      - name: Share progress after Analyze
+        uses: actions/upload-artifact@v4
+        continue-on-error: true
+        with:
+          name: repeval-progress-1
+          path: \${{ runner.temp }}/repeval-progress/
+          if-no-files-found: ignore
+          retention-days: 1
 
       - name: Plan
         run: npx --yes repeval@0.1 plan --tests "$TESTS"
         env:
           TESTS: \${{ inputs.tests }}
+          REPEVAL_PROGRESS: \${{ runner.temp }}/repeval-progress
+
+      - name: Share progress after Plan
+        uses: actions/upload-artifact@v4
+        continue-on-error: true
+        with:
+          name: repeval-progress-2
+          path: \${{ runner.temp }}/repeval-progress/
+          if-no-files-found: ignore
+          retention-days: 1
 
       - name: Generate
         run: npx --yes repeval@0.1 generate --ai "$AI"
@@ -72,6 +97,16 @@ jobs:
           AI: \${{ inputs.ai }}
           ANTHROPIC_API_KEY: \${{ secrets.ANTHROPIC_API_KEY }}
           OPENAI_API_KEY: \${{ secrets.OPENAI_API_KEY }}
+          REPEVAL_PROGRESS: \${{ runner.temp }}/repeval-progress
+
+      - name: Share progress after Generate
+        uses: actions/upload-artifact@v4
+        continue-on-error: true
+        with:
+          name: repeval-progress-3
+          path: \${{ runner.temp }}/repeval-progress/
+          if-no-files-found: ignore
+          retention-days: 1
 
       - name: Test
         run: npx --yes repeval@0.1 test
