@@ -162,8 +162,9 @@ function boxHtml(b: Box) {
 function markup() {
   const marker = (k: string) =>
     `<marker id="film-arrow-${k}" viewBox="-10 -10 20 20" markerWidth="12" markerHeight="12" orient="auto"><polyline class="tip ${k}" points="-5,-4 0,0 -5,4 -5,-4"/></marker>`;
-  return `<div class="film-stage" role="group" aria-label="A run of the demo shop as a flow. Tap a box to follow it, drag to look around.">
-  <div class="film-dots" aria-hidden="true"></div>
+  // React Flow's dotted background, drawn the way React Flow draws it: an SVG pattern in screen pixels.
+  return `<svg class="film-dots" aria-hidden="true"><pattern id="film-dot-grid" patternUnits="userSpaceOnUse"><circle/></pattern><rect width="100%" height="100%" fill="url(#film-dot-grid)"/></svg>
+<div class="film-stage" role="group" aria-label="A run of the demo shop as a flow. Tap a box to follow it, drag to look around.">
   <div class="film-world" style="width:${WORLD_W}px">
     <svg class="film-lines" width="${WORLD_W}" height="${H}" aria-hidden="true"><defs>${['ok', 'bug', 'skip'].map(marker).join('')}</defs>${LINES.map(
       (l) => `<path data-line="${l.id}" d="${l.d}" class="film-line ${l.tone}" marker-end="url(#film-arrow-${l.tone})"/>`,
@@ -253,7 +254,8 @@ export function mountHeroFlow(el: HTMLElement, loadAnime: () => Promise<Anime>, 
   const stageEl = el.querySelector<HTMLElement>('.film-stage')!;
   const world = el.querySelector<HTMLElement>('.film-world')!;
   const sel = el.querySelector<HTMLElement>('.film-sel')!;
-  const dots = el.querySelector<HTMLElement>('.film-dots')!;
+  const pattern = el.querySelector<SVGPatternElement>('#film-dot-grid')!;
+  const dot = pattern.querySelector('circle')!;
   const host = el.parentElement!;
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const off: (() => void)[] = [];
@@ -266,6 +268,7 @@ export function mountHeroFlow(el: HTMLElement, loadAnime: () => Promise<Anime>, 
   const ro = new ResizeObserver(() => {
     k = el.clientWidth / W;
     el.style.setProperty('--k', String(k));
+    syncDots();
   });
   ro.observe(el);
   off.push(() => ro.disconnect());
@@ -296,13 +299,21 @@ export function mountHeroFlow(el: HTMLElement, loadAnime: () => Promise<Anime>, 
     });
   }
 
-  // The dots follow the view like React Flow's: their spacing pans and zooms, their size stays the same.
+  // The dots copy React Flow's <Background variant="dots" gap={20} size={1.6} /> on the run page: spacing and
+  // size both scale with the zoom, and at the starting view they match the run flow at its usual zoom (0.85).
   function syncDots() {
     const m = new DOMMatrix(getComputedStyle(world).transform);
-    let gap = 32 * m.a;
-    while (gap < 16) gap *= 2; // zoomed far out: every 2nd or 4th dot, so the grid never turns to noise
-    dots.style.backgroundSize = `${gap}px ${gap}px`;
-    dots.style.backgroundPosition = `${m.e}px ${m.f}px`;
+    const z = (0.85 * m.a) / ZOOM;
+    const gap = 20 * z;
+    const r = (1.6 * z) / 2;
+    pattern.setAttribute('x', String((m.e * k) % gap));
+    pattern.setAttribute('y', String((m.f * k) % gap));
+    pattern.setAttribute('width', String(gap));
+    pattern.setAttribute('height', String(gap));
+    pattern.setAttribute('patternTransform', `translate(-${r},-${r})`);
+    dot.setAttribute('cx', String(r));
+    dot.setAttribute('cy', String(r));
+    dot.setAttribute('r', String(r));
   }
   const onTime = (ms: number) => {
     syncDots();
