@@ -16,12 +16,14 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { LoadedReport, ReportTest } from '@/lib/report-client';
 import { STEPS } from '@/lib/steps';
-import type { RunStep } from '@/lib/types';
+import type { Progress, RunStep } from '@/lib/types';
 
 // The run as a flow diagram (React Flow, MIT). Each page, endpoint and function gets its own lane,
 // left to right through the six stages: found → planned or skipped → test file → result → screenshot and report.
-// While the run is on GitHub only the stages are known, so a stage's box appears when it starts.
-// Once the report arrives, the lanes grow out stage by stage, and the first possible bug is lit up.
+// A stage's box appears when it starts. With workflow v3 the run shares a names-only progress file after
+// Analyze, Plan and Generate, so the lanes grow out while it runs; the results follow with the report.
+// Older workflows share nothing, so there the lanes all grow out once the report arrives.
+// When the run is over, the first possible bug is lit up.
 
 const STAGES = [
   { id: 'collect', no: '①', name: 'Collect', text: 'GitHub copies your repo onto a fresh, temporary machine and installs Node 22. Repeval never receives your code.' },
@@ -58,8 +60,11 @@ interface Model {
   files: string[];
   tests: string[];
   load: { from: string[]; label: string; sub: string; info: string } | null;
-  done: Record<StageId, string>;
+  /** What each finished stage's box says, for the stages the data covers so far. */
+  done: Partial<Record<StageId, string>>;
   hasBug: boolean;
+  /** How far the data reaches, on the same 0..1 scale as the reveal: Understand, Plan, Make tests or everything. */
+  level: number;
 }
 
 const plural = (n: number, one: string, many = one + 's') => `${n} ${n === 1 ? one : many}`;
@@ -68,55 +73,106 @@ const base = (p: string) => p.split('/').pop() ?? p;
 const short = (note?: string) => (note ?? 'skipped').replace(/\s*\([^)]*\)\s*$/, '').split(': ').pop()!;
 // "Error: browser errors on this page: Uncaught error: cartTotal is not defined" → "cartTotal is not defined"
 const firstLine = (msg?: string) => (msg ?? '').split('\n')[0].replace(/^Error:\s*/, '').trim();
+const GROUP_OF = { page: 'Pages', endpoint: 'API', function: 'Code' } as const;
+const RANK: Record<ReportTest['status'], number> = { 'possible-bug': 0, broken: 1, passed: 2, skipped: 3 };
 
-function modelOf(report: LoadedReport): Model {
-  const { tests, summary } = report.results;
+function skipLane(lane: Lane, reason?: string) {
+  lane.skip = short(reason);
+  lane.skipInfo = reason ? `Skipped: ${reason}.` : 'Skipped.';
+}
+
+function setResult(lane: Lane, t: ReportTest, note?: string) {
+  lane.result = t.status === 'passed' ? 'passed' : t.status === 'possible-bug' ? 'bug' : 'broken';
+  if (lane.result === 'passed') {
+    lane.resultText = lane.group === 'Pages' ? 'loads, no errors' : lane.group === 'API' ? 'answers, no server error' : 'loads, exported';
+    lane.resultInfo = `${lane.label}: ${lane.resultText}.${note ? ` Note: ${note}.` : ''}`;
+  } else if (lane.result === 'bug') {
+    lane.resultText = firstLine(t.message).split(': ').pop() || 'see the report';
+    lane.resultInfo = `The test ran and your app did something wrong. ${firstLine(t.message) || 'The report has the details.'}`;
+  } else {
+    lane.resultText = 'the test itself failed';
+    lane.resultInfo = "The generated test couldn't run. This is Repeval's problem, not your app's: please report it.";
+  }
+}
+
+/** Lanes while the run is going, from the names-only progress file. */
+function lanesFromProgress(p: Progress) {
+  const plan = p.plan ? new Map(p.plan.map((t) => [t.id, t])) : null;
+  const testOf = new Map<string, string>();
+  for (const f of p.tests ?? []) for (const id of f.targets) testOf.set(id, f.file);
+  const lanes = p.found.map((f): Lane => {
+    const group = GROUP_OF[f.kind];
+    const lane: Lane = { id: f.id, group, label: f.label, kind: f.kind, source: f.source, framework: group === 'Code' ? 'Vitest' : 'Playwright' };
+    const t = plan?.get(f.id);
+    if (plan && !t) {
+      lane.skip = 'not in this run';
+      lane.skipInfo = 'Not part of the tests picked for this run.';
+    } else if (t && !t.enabled) skipLane(lane, t.reason);
+    lane.test = testOf.get(f.id);
+    return lane;
+  });
+  const loads = (p.plan ?? []).filter((t) => t.id.startsWith('load:')).map((t) => ({ target: t.id, note: t.reason }));
+  return { lanes, loads };
+}
+
+/** Lanes once the report is in: one per page, endpoint or function, however many tests it had. */
+function lanesFromReport(report: LoadedReport) {
   const generated = report.tests.map((f) => base(f.path));
   const unitFile = (src: string) => {
     const stem = src.replace(/\.[^./]+$/, '').replace(/\//g, '__');
     return generated.find((g) => g.startsWith(stem + '.test.')) ?? `${stem}.test.ts`;
   };
-  const lanes: Lane[] = [];
+  const byTarget = new Map<string, ReportTest[]>();
+  const modules: ReportTest[] = [];
   const loads: ReportTest[] = [];
-  for (const t of tests) {
-    if (t.suite === 'load') {
-      loads.push(t);
-      continue;
+  for (const t of report.results.tests) {
+    if (t.suite === 'load') loads.push(t);
+    // "file loads without errors" checks have no lane of their own; a failure shows on that file's functions.
+    else if (t.suite === 'unit' && !t.target) modules.push(t);
+    else {
+      const id = t.target ?? t.id;
+      byTarget.set(id, [...(byTarget.get(id) ?? []), t]);
     }
-    const group: Group = t.suite === 'e2e' ? 'Pages' : t.suite === 'api' ? 'API' : 'Code';
-    const target = t.target?.replace(/^(page|api|unit):/, '');
-    const source = t.source ?? (group === 'Code' ? t.file : undefined) ?? 'your app';
+  }
+  const lanes = [...byTarget].map(([id, list]): Lane => {
+    const worst = [...list].sort((a, b) => RANK[a.status] - RANK[b.status])[0];
+    const group: Group = worst.suite === 'e2e' ? 'Pages' : worst.suite === 'api' ? 'API' : 'Code';
+    const source = worst.source ?? (group === 'Code' ? worst.file : undefined) ?? 'your app';
     const lane: Lane = {
-      id: t.id,
+      id,
       group,
       source,
       framework: group === 'Code' ? 'Vitest' : 'Playwright',
-      label: group === 'Code' ? (t.target ? t.title.split(' › ')[0] : base(source)) : (target ?? t.title),
-      kind: group === 'Pages' ? 'page' : group === 'API' ? 'endpoint' : t.target ? 'function' : 'module',
+      label: group === 'Code' ? worst.title.split(' › ')[0] : worst.target ? id.replace(/^(page|api):/, '') : worst.title,
+      kind: group === 'Pages' ? 'page' : group === 'API' ? 'endpoint' : 'function',
     };
-    if (t.status === 'skipped') {
-      lane.skip = short(t.note);
-      lane.skipInfo = t.note ? `Skipped: ${t.note}.` : 'Skipped.';
-    } else {
-      lane.test = group === 'Code' ? unitFile(source) : base(t.file ?? 'tests');
-      lane.result = t.status === 'passed' ? 'passed' : t.status === 'possible-bug' ? 'bug' : 'broken';
-      if (lane.result === 'passed') {
-        lane.resultText = group === 'Pages' ? 'loads, no errors' : group === 'API' ? 'answers, no server error' : lane.kind === 'module' ? 'loads, no errors' : 'loads, exported';
-        lane.resultInfo = `${lane.label}: ${lane.resultText}.${t.note ? ` Note: ${t.note}.` : ''}`;
-      } else if (lane.result === 'bug') {
-        lane.resultText = firstLine(t.message).split(': ').pop() || 'see the report';
-        lane.resultInfo = `The test ran and your app did something wrong. ${firstLine(t.message) || 'The report has the details.'}`;
-      } else {
-        lane.resultText = 'the test itself failed';
-        lane.resultInfo = "The generated test couldn't run. This is Repeval's problem, not your app's: please report it.";
-      }
-      if (group === 'Pages' && t.screenshots.length) lane.shot = report.image(t.screenshots.find((s) => s.includes('desktop')) ?? t.screenshots[0]);
+    if (worst.status === 'skipped') skipLane(lane, worst.note);
+    else {
+      lane.test = group === 'Code' ? unitFile(source) : base(worst.file ?? 'tests');
+      setResult(lane, worst, list.find((t) => t.note)?.note);
+      const shots = list.find((t) => t.screenshots.length)?.screenshots;
+      if (group === 'Pages' && shots) lane.shot = report.image(shots.find((x) => x.includes('desktop')) ?? shots[0]);
     }
-    lanes.push(lane);
+    return lane;
+  });
+  for (const m of modules) {
+    if (m.status !== 'possible-bug' && m.status !== 'broken') continue;
+    for (const l of lanes) if (l.group === 'Code' && l.source === (m.source ?? m.file) && l.result === 'passed') setResult(l, m);
   }
-  // Keep each source file's functions together, so its lines don't cross.
+  return { lanes, loads };
+}
+
+function modelOf(progress: Progress | null, report: LoadedReport | null): Model | null {
+  if (!report && !progress) return null;
+  const { lanes, loads } = report ? lanesFromReport(report) : lanesFromProgress(progress!);
+  // Same order as the progress file, so nothing reshuffles when the report arrives. Each source file's
+  // functions stay together, so their lines don't cross.
   const order: Group[] = ['Pages', 'API', 'Code'];
-  lanes.sort((a, b) => order.indexOf(a.group) - order.indexOf(b.group) || (a.group === 'Code' ? a.source.localeCompare(b.source) : 0));
+  const known = new Map(progress?.found.map((f, i) => [f.id, i]) ?? []);
+  const at = new Map(lanes.map((l, i) => [l.id, known.get(l.id) ?? 100_000 + i]));
+  lanes.sort(
+    (a, b) => order.indexOf(a.group) - order.indexOf(b.group) || (a.group === 'Code' ? a.source.localeCompare(b.source) : 0) || at.get(a.id)! - at.get(b.id)!,
+  );
 
   const files = [...new Set(lanes.map((l) => l.source))];
   const testFiles = [...new Set(lanes.flatMap((l) => (l.test ? [l.test] : [])))];
@@ -128,28 +184,30 @@ function modelOf(report: LoadedReport): Model {
         info: loads[0].note ? `Load tests: ${loads[0].note}.` : 'Load tests.',
       }
     : null;
-  const count = (g: Group, kind?: string) => lanes.filter((l) => l.group === g && (!kind || l.kind === kind)).length;
-  const found = [
-    count('Pages') && plural(count('Pages'), 'page'),
-    count('API') && `${count('API')} API`,
-    count('Code', 'function') && plural(count('Code', 'function'), 'function'),
-  ].filter(Boolean);
-  const planned = lanes.filter((l) => !l.skip).length;
-  const bugs = summary['possible-bug'];
+  const count = (g: Group) => lanes.filter((l) => l.group === g).length;
+  const found = [count('Pages') && plural(count('Pages'), 'page'), count('API') && `${count('API')} API`, count('Code') && plural(count('Code'), 'function')].filter(Boolean);
+  const planKnown = !!report || !!progress?.plan;
+  const testsKnown = !!report || !!progress?.tests;
+  const done: Model['done'] = {
+    collect: plural(files.length, 'source file'),
+    understand: found.length ? found.join(', ') : 'nothing to test found',
+  };
+  if (planKnown) done.plan = `${lanes.filter((l) => !l.skip).length} of ${lanes.length + loads.length} to test`;
+  if (testsKnown) done.make = plural(testFiles.length, 'test file');
+  const summary = report?.results.summary;
+  if (summary && report) {
+    const bugs = summary['possible-bug'];
+    done.run = [`${summary.passed} passed`, bugs && plural(bugs, 'possible bug'), summary.broken && plural(summary.broken, 'broken test')].filter(Boolean).join(' · ');
+    done.results = `${plural(report.screenshotCount, 'screenshot')}, 1 report`;
+  }
   return {
     lanes,
     files,
     tests: testFiles,
     load,
-    hasBug: bugs > 0,
-    done: {
-      collect: plural(files.length, 'source file'),
-      understand: found.length ? found.join(', ') : 'nothing to test found',
-      plan: `${planned} of ${lanes.length + loads.length} to test`,
-      make: plural(testFiles.length, 'test file'),
-      run: [`${summary.passed} passed`, bugs && plural(bugs, 'possible bug'), summary.broken && plural(summary.broken, 'broken test')].filter(Boolean).join(' · '),
-      results: `${plural(report.screenshotCount, 'screenshot')}, 1 report`,
-    },
+    done,
+    hasBug: !!summary?.['possible-bug'],
+    level: report ? 1 : testsKnown ? SLICES.make[1] : planKnown ? SLICES.plan[1] : SLICES.understand[1],
   };
 }
 
@@ -330,13 +388,13 @@ function build(model: Model | null, steps: RunStep[], done: boolean, t: number, 
       link(`e:found>plan:${l.id}`, 'found:' + l.id, 'plan:' + l.id, 'skip');
       return;
     }
-    member('test:' + l.test, l.id);
+    if (l.test) member('test:' + l.test, l.id);
     member('report', l.id);
     node('plan:' + l.id, 'item', 2, ry, { title: 'Test it', noteTitle: `${l.label}: planned`, sub: l.framework, state: 'passed', kind: 'plan', info: 'Planned: Repeval can test this without AI.' });
     link(`e:found>plan:${l.id}`, 'found:' + l.id, 'plan:' + l.id, 'done');
-    link(`e:plan>test:${l.id}`, 'plan:' + l.id, 'test:' + l.test, 'done');
-    if (!shown(F.run, i, all.length)) return;
-    const r = l.result!;
+    if (l.test) link(`e:plan>test:${l.id}`, 'plan:' + l.id, 'test:' + l.test, 'done');
+    if (!l.result || !shown(F.run, i, all.length)) return;
+    const r = l.result;
     const line = r === 'bug' ? 'bug' : 'done';
     const title = r === 'bug' ? 'Possible bug' : r === 'broken' ? 'Broken test' : 'Passed';
     node('result:' + l.id, 'item', 4, ry, { title, noteTitle: `${l.label}: ${title.toLowerCase()}`, sub: l.resultText, state: r === 'broken' ? 'running' : r, kind: 'result', info: l.resultInfo });
@@ -437,35 +495,45 @@ export interface RunFlowProps {
   steps: RunStep[];
   done: boolean;
   report: LoadedReport | null;
-  /** Grow the lanes out stage by stage when the report arrives, instead of showing them all at once. */
+  /** Names-only progress from workflow v3, while the run is going. */
+  progress: Progress | null;
+  /** Grow the lanes out stage by stage as the data arrives, instead of showing them all at once. */
   reveal: boolean;
 }
 
-export default function RunFlow({ id, steps, done, report, reveal }: RunFlowProps) {
-  const model = useMemo(() => (report ? modelOf(report) : null), [report]);
+export default function RunFlow({ id, steps, done, progress, report, reveal }: RunFlowProps) {
+  const model = useMemo(() => modelOf(progress, report), [progress, report]);
   const wrap = useRef<HTMLDivElement>(null);
   const inst = useRef<ReactFlowInstance<FNode, FEdge> | null>(null);
   const [t, setT] = useState(reveal ? 0 : 1);
+  const tRef = useRef(t);
   const [expanded, setExpanded] = useState<Partial<Record<Group, boolean>>>({});
   const [selected, setSelected] = useState<string | null>(null);
   const [note, setNote] = useState<{ title: string; text: string } | null>(null);
   const autoPicked = useRef(false);
 
-  // Grow the lanes once the report is here.
+  // Grow the lanes up to where the data reaches, at a steady pace: each new progress file or the report
+  // moves the goal further, and the diagram catches up stage by stage.
+  const goal = model?.level ?? 0;
   useEffect(() => {
-    if (!model || t >= 1) return;
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return setT(1);
-    const start = performance.now() - t * REVEAL_MS;
+    if (tRef.current >= goal) return;
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      tRef.current = goal;
+      return setT(goal);
+    }
+    let last = performance.now();
     const iv = setInterval(() => {
-      const x = Math.min(1, (performance.now() - start) / REVEAL_MS);
-      setT(x);
-      if (x >= 1) clearInterval(iv);
+      const now = performance.now();
+      const next = Math.min(goal, tRef.current + (now - last) / REVEAL_MS);
+      last = now;
+      tRef.current = next;
+      setT(next);
+      if (next >= goal) clearInterval(iv);
     }, 70);
     return () => clearInterval(iv);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [model]);
+  }, [goal]);
 
-  const g = useMemo(() => build(model, steps, done, t, expanded), [model, steps, done, t, expanded]);
+  const g = useMemo(() => build(model, steps, done, Math.min(t, goal), expanded), [model, steps, done, t, goal, expanded]);
   const latest = useRef(0);
   latest.current = g.latestCol;
 
@@ -503,7 +571,7 @@ export default function RunFlow({ id, steps, done, report, reveal }: RunFlowProp
 
   // When the run is over and every lane is in, light up the first possible bug (or broken test).
   useEffect(() => {
-    if (!model || !done || t < 1 || autoPicked.current) return;
+    if (!model || !report || !done || t < 1 || autoPicked.current) return;
     autoPicked.current = true;
     const first = model.lanes.find((l) => l.result === 'bug') ?? model.lanes.find((l) => l.result === 'broken');
     if (!first) return;
@@ -511,7 +579,7 @@ export default function RunFlow({ id, steps, done, report, reveal }: RunFlowProp
     if (inGroup.length > LIMIT && inGroup.indexOf(first) >= LIMIT - 1) setExpanded((x) => ({ ...x, [first.group]: true }));
     setSelected('result:' + first.id);
     setNote({ title: `${first.label}: ${first.result === 'bug' ? 'possible bug' : 'broken test'}`, text: first.resultInfo ?? '' });
-  }, [model, done, t]);
+  }, [model, report, done, t]);
 
   // On phones, move the view to the lit-up result.
   useEffect(() => {

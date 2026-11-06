@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { loadReport, type LoadedReport } from '@/lib/report-client';
 import { useRunView } from '@/lib/run-view';
 import { STEPS } from '@/lib/steps';
-import type { RunStatus } from '@/lib/types';
+import type { Progress, RunStatus } from '@/lib/types';
 import { clock } from '@/lib/time';
 import { Board } from './Board';
 import { RunFlow } from './RunFlowLazy';
@@ -14,6 +14,9 @@ import { ViewSwitch } from './ViewSwitch';
 /** The live run screen: polls GitHub (through this site's API) and flips the board as steps finish. */
 export function LiveRun({ owner, repo, initial, pollMs }: { owner: string; repo: string; initial: RunStatus; pollMs: number }) {
   const [run, setRun] = useState(initial);
+  // Names-only progress from workflow v3: lets the flow grow its lanes while the run is still going.
+  const [progress, setProgress] = useState<Progress | null>(initial.progress ?? null);
+  const checked = useRef(initial.progressChecked ?? 0);
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState<number | null>(null);
   const [report, setReport] = useState<LoadedReport | null>(null);
@@ -31,14 +34,17 @@ export function LiveRun({ owner, repo, initial, pollMs }: { owner: string; repo:
     let timer: ReturnType<typeof setTimeout>;
     const tick = async () => {
       try {
-        const res = await fetch(`/api${base}/runs/${encodeURIComponent(run.id)}`, { cache: 'no-store' });
+        const res = await fetch(`/api${base}/runs/${encodeURIComponent(run.id)}?p=${checked.current}`, { cache: 'no-store' });
         const body = await res.json();
         if (!res.ok) {
           setError(body.error ?? 'GitHub did not answer.');
           if (res.status === 401 || res.status === 404) return;
         } else {
           setError(null);
-          setRun(body as RunStatus);
+          const next = body as RunStatus;
+          if (next.progressChecked) checked.current = Math.max(checked.current, next.progressChecked);
+          if (next.progress) setProgress(next.progress);
+          setRun(next);
           if ((body as RunStatus).phase === 'done') return;
         }
       } catch {
@@ -128,7 +134,7 @@ export function LiveRun({ owner, repo, initial, pollMs }: { owner: string; repo:
         <section>
           <ViewSwitch view={view} onChange={setView} />
           {view === 'flow' ? (
-            <RunFlow id="flow-live" steps={run.steps} done={done} report={report} reveal={reveal} />
+            <RunFlow id="flow-live" steps={run.steps} done={done} progress={progress} report={report} reveal={reveal} />
           ) : (
             <Board title={`${owner} / ${repo}`} steps={run.steps} done={done} />
           )}

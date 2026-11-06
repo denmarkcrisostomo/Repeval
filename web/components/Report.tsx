@@ -244,7 +244,7 @@ export function Report({ owner, repo, run, save }: { owner: string; repo: string
           <>
             <ViewSwitch view={view} onChange={setView} />
             {view === 'flow' ? (
-              <RunFlow id="flow-report" steps={run.steps} done report={report} reveal={false} />
+              <RunFlow id="flow-report" steps={run.steps} done progress={null} report={report} reveal={false} />
             ) : (
               <Board title={`${owner} / ${repo}`} steps={run.steps} done animate={false} />
             )}
