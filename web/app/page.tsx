@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { Compare } from '@/components/Compare';
 import { CopyButton } from '@/components/CopyButton';
-import { DemoVideo } from '@/components/DemoVideo';
+import { DemoFilm } from '@/components/DemoFilm';
 import { Faq } from '@/components/Faq';
 import { API_SPEC, PAGES_SPEC, WORKFLOW_SNIPPET } from '@/components/landing-content';
 import { SiteHeader } from '@/components/SiteHeader';
@@ -50,7 +50,7 @@ export default async function Home() {
                 <li>No AI required</li>
               </ul>
             </div>
-            <DemoVideo />
+            <DemoFilm />
           </div>
         </section>
 
