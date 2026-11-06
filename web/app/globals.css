@@ -578,84 +578,81 @@ footer.site { padding-block: 96px 40px; }
 @media (max-width: 640px) { .flow { height: 620px; } .flow.compact { height: 200px; } }
 .flow-hint { margin: 0 0 12px; }
 
-/* ---------- Demo film: a 1280 × 720 stage animated with anime.js, scaled to fit ---------- */
-.film { position: relative; aspect-ratio: 16 / 9; border-radius: 18px; overflow: hidden; background: var(--board); color: var(--flap-ink); --k: .5; }
-.film-stage { position: absolute; left: 0; top: 0; width: 1280px; height: 720px; transform: scale(var(--k)); transform-origin: 0 0; font-family: var(--font); }
-.film-scene { position: absolute; inset: 0; opacity: 0; }
-.film-scene .rise { opacity: 0; }
-.film-scene h3 { margin: 0; font-weight: 800; font-stretch: 75%; letter-spacing: -.025em; line-height: .95; }
-.film-scene em { font-style: normal; color: var(--b-ok); }
-.film-logo { display: block; color: var(--flap-ink); --logo-eval: #2dd4bf; }
-.film-logo .emblem { display: block; width: 150px; height: 71px; }
-.film-logo.big .emblem { width: 360px; height: 170px; }
-
-.film-title { padding: 70px 90px; }
-.film-title h3 { margin-top: 140px; font-size: 128px; }
-.film-title p { margin: 30px 0 0; font-size: 30px; color: #a9bbb8; }
-
-.film-pick { display: grid; justify-items: center; align-content: start; padding-top: 110px; gap: 40px; }
-.film-pick h3 { font-size: 80px; }
-.film-repos { width: 760px; display: grid; gap: 12px; }
-.film-repo { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 22px 26px; border-radius: 16px; background: var(--flap); border: 1px solid #2c3a3d; }
-.film-repo b { display: block; font: 500 26px var(--mono); }
-.film-repo span { display: block; margin-top: 4px; color: #a9bbb8; font-size: 19px; }
-.film-repo.on { border-color: rgba(45,212,191,.6); }
-.film-run { display: inline-grid !important; place-items: center; margin: 0 !important; width: 120px; height: 54px; border-radius: 999px; background: #2dd4bf; color: #04201d !important; font: 700 22px var(--font) !important; }
-.film-cursor { position: absolute; left: 0; top: 0; opacity: 0; filter: drop-shadow(0 2px 4px rgba(0,0,0,.5)); }
-
+/* ---------- Hero demo: the run as one chain on a 1280 × 600 stage, animated with anime.js (lib/hero-flow.ts) ---------- */
+/* No card: the flow sits on the page background, on a dotted grid like React Flow's. Every side and corner fades
+   out, so the grid and the boxes melt into the hero instead of ending at an edge. */
+.film { position: relative; aspect-ratio: 1280 / 600; overflow: hidden; color: var(--ink); --k: .5; --film-dot: color-mix(in srgb, var(--ink) 22%, transparent);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent), linear-gradient(transparent, #000 16%, #000 84%, transparent);
+  -webkit-mask-composite: source-in; mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent), linear-gradient(transparent, #000 16%, #000 84%, transparent); mask-composite: intersect; }
+/* The dots are drawn on the stage; film.js moves and spaces them with the view, as React Flow does. */
+.film-dots { position: absolute; inset: 0; pointer-events: none; background-image: radial-gradient(circle, var(--film-dot) 2.2px, transparent 2.6px); background-size: 19px 19px; }
+.film-stage { position: absolute; left: 0; top: 0; width: 1280px; height: 600px; transform: scale(var(--k)); transform-origin: 0 0; font-family: var(--font); }
 .film-world { position: absolute; left: 0; top: 0; width: 1560px; height: 980px; transform-origin: 0 0; }
-.film-world .fh, .film-world .fi, .film-world .fs, .film-world .fg { position: absolute; opacity: 0; animation: none; transition: none; }
-.film-world .fh { height: 64px; border-color: #f5b83d; }
-.film-world .fh-name { font-size: 19px; }
-.film-world .fh-text { position: relative; height: 18px; font-size: 14.5px; }
-.film-world .fh-text > span { position: absolute; inset: 0; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
-.film-world .fh-text i { flex: none; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
-.film-world .t-run { color: var(--b-run); }
-.film-world .t-done { color: var(--b-ok); opacity: 0; }
-.film-world .bugtext .t-done { color: var(--b-bug); }
-.film-world .fi { height: 52px; box-sizing: border-box; align-content: center; }
-.film-world .fi b { font-size: 16px; }
-.film-world .fi span { font-size: 13.5px; }
-.film-world .fi.found b, .film-world .fi.file b, .film-world .fi.test b { font-size: 15px; }
-.film-world .fs { height: 52px; }
-.film-world .fg { font-size: 13px; }
+.film-world .fhd, .film-world .fb, .film-world .fsh, .film-world .fgl, .film-world .fst { position: absolute; opacity: 0; }
+/* A stage: a box in the chain, amber while running, then its result. */
+.fst { box-sizing: border-box; display: grid; align-content: center; gap: 6px; padding: 0 16px; border-radius: 14px; background: var(--surface); border: 1.5px solid var(--soft-2); }
+.fst > b { font-weight: 800; font-stretch: 112%; font-size: 22px; line-height: 1; }
+.fst-text { position: relative; height: 18px; font-size: 14px; }
+.fst-text > span { position: absolute; inset: 0; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.fst-text i { flex: none; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.fst .t-run { color: var(--run); }
+.fst .t-done { color: var(--ok); opacity: 0; }
+.fst .bugtext .t-done { color: var(--bug); }
+.fst .ring { border-radius: 14px; inset: -1.5px; }
+.fhd { box-sizing: border-box; display: grid; gap: 4px; top: 0; height: 64px; padding: 10px 14px; border-radius: 10px; background: var(--surface); border: 1px solid var(--soft-2); }
+.fhd-name { font-weight: 700; font-stretch: 112%; font-size: 19px; }
+.fhd-text { position: relative; height: 18px; font-size: 14.5px; }
+.fhd-text > span { position: absolute; inset: 0; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.fhd-text i { flex: none; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.fhd .t-run { color: var(--run); }
+.fhd .t-done { color: var(--ok); opacity: 0; }
+.fhd .bugtext .t-done { color: var(--bug); }
+.film-world .ring { position: absolute; inset: -1px; border-radius: 10px; pointer-events: none; }
+.ring.run { border: 1.5px solid var(--run); }
+.ring.bug { border: 1.5px solid var(--bug); opacity: 0; }
+.fgl { color: var(--muted); font: 600 13px var(--mono); letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; }
+.fb { box-sizing: border-box; display: grid; align-content: center; gap: 1px; height: 52px; padding: 0 12px; border-radius: 10px; background: var(--surface); border: 1px solid var(--soft-2); }
+.fb b { font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fb span { font-size: 13.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fb.found b, .fb.file b, .fb.test b { font: 500 15px var(--mono); }
+.fb.passed { border-color: color-mix(in srgb, var(--ok) 55%, transparent); }
+.fb.passed span { color: var(--ok); }
+.fb.bug { border-color: var(--bug); background: var(--bug-soft); }
+.fb.bug b, .fb.bug span { color: var(--bug); }
+.fb.skip { border-style: dashed; background: transparent; }
+.fsh { box-sizing: border-box; display: flex; align-items: center; gap: 10px; height: 52px; padding: 4px 10px 4px 4px; border-radius: 10px; background: var(--surface); border: 1px solid color-mix(in srgb, var(--ok) 55%, transparent); }
+.fsh img { flex: none; width: 68px; height: 42px; object-fit: cover; object-position: top; border-radius: 6px; }
+.fsh span { font: 500 13px var(--mono); color: var(--muted); }
+.fsh.bug { border-color: var(--bug); }
+.fsh.bug span { color: var(--bug); }
+.film-sel { position: absolute; left: 0; top: 0; width: 0; height: 0; border: 3px solid var(--ink); border-radius: 13px; opacity: 0; pointer-events: none; box-sizing: border-box; }
 .film-lines { position: absolute; top: 0; overflow: visible; }
 .film-line { fill: none; stroke-width: 1.8; opacity: 0; }
-.film-line.ok { stroke: #2dd4bf; }
-.film-line.bug { stroke: #ff6b5e; }
-.film-line.skip { stroke: #56686a; stroke-dasharray: 5 5; }
-.film-bar { position: absolute; left: 0; right: 0; top: 0; height: 92px; display: flex; align-items: center; justify-content: space-between; padding: 0 44px; background: linear-gradient(var(--board) 70%, transparent); }
-.film-bar b { display: block; font-size: 28px; font-weight: 700; }
-.film-bar span { display: block; margin-top: 4px; color: #a9bbb8; font-size: 18px; }
-.film-clock { font-size: 44px !important; font-weight: 800 !important; font-variant-numeric: tabular-nums; }
-
-.film-bug { display: grid; grid-template-columns: 300px 1fr; gap: 64px; align-items: center; padding: 0 100px; }
-.film-bug img { width: 300px; height: 600px; object-fit: cover; object-position: top; border-radius: 26px; border: 4px solid #ff6b5e; background: #fff; }
-.film-bug h3 { margin: 22px 0 24px; font-size: 84px; }
-.film-pill { display: inline-block; padding: 8px 18px; border-radius: 999px; background: rgba(255,107,94,.16); color: #ff6b5e; font-size: 22px; font-weight: 600; }
-.film-bug code { display: inline-block; padding: 10px 16px; border-radius: 10px; background: var(--flap); color: #ff6b5e; font: 500 26px var(--mono); }
-.film-bug p { margin: 26px 0 0; font-size: 25px; line-height: 1.4; color: #cfdad8; max-width: 640px; }
-
-.film-shots { padding: 60px 90px; }
-.film-shots h3 { font-size: 72px; white-space: nowrap; }
-.film-shots small { margin-left: 18px; font-size: 22px; font-weight: 500; font-stretch: 100%; color: #a9bbb8; letter-spacing: 0; }
-.film-grid { margin-top: 36px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 22px; }
-.film-grid figure { margin: 0; }
-.film-grid img { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; object-position: top; border-radius: 10px; border: 3px solid transparent; background: #fff; }
-.film-grid .bug img { border-color: #ff6b5e; }
-.film-grid figcaption { display: flex; justify-content: space-between; margin-top: 10px; font: 500 18px var(--mono); }
-.film-grid figcaption span:last-child { color: var(--b-ok); font-family: var(--font); font-weight: 600; }
-.film-grid .bug figcaption span:last-child { color: var(--b-bug); }
-
-.film-privacy { padding: 150px 100px; }
-.film-privacy h3 { font-size: 116px; }
-.film-privacy p { margin: 22px 0 0; font-size: 30px; color: #cfdad8; }
-
-.film-end { display: grid; justify-items: center; align-content: center; gap: 34px; }
-.film-ctas { display: flex; gap: 16px; }
-.film-btn { display: inline-flex; align-items: center; gap: 12px; height: 64px; padding: 0 28px; border-radius: 999px; background: #2dd4bf; color: #04201d; font-size: 25px; font-weight: 700; }
-.film-btn svg { width: 26px; height: 26px; }
-.film-btn.code { background: var(--flap); color: var(--flap-ink); font: 500 25px var(--mono); }
-.film-end p { margin: 0; color: #a9bbb8; font-size: 24px; }
-.film-sound { position: absolute; right: 12px; bottom: 12px; height: 34px; padding: 0 14px; border: 0; border-radius: 999px; background: rgba(26,34,37,.85); color: var(--flap-ink); font: 600 13px var(--font); cursor: pointer; }
+.film-line.ok { stroke: var(--ok); }
+.film-line.bug { stroke: var(--bug); }
+.film-line.skip { stroke: var(--muted); stroke-dasharray: 5 5; }
+.tip.ok { fill: var(--ok); stroke: var(--ok); }
+.tip.bug { fill: var(--bug); stroke: var(--bug); }
+.tip.skip { fill: var(--muted); stroke: var(--muted); }
+/* Once grown, every box can be tapped. */
+.film.ready .film-stage { cursor: grab; touch-action: pan-y; }
+.film.ready [data-box][role] { cursor: pointer; }
+@media (hover: hover) { .film.ready .fb:hover, .film.ready .fsh:hover { border-color: var(--ink); } }
+.film [data-box]:focus-visible { outline: 3px solid var(--s-teal); outline-offset: 4px; }
+/* No anime.js (offline): the finished diagram, still. */
+.film.failed .film-world .fst, .film.failed .film-world .fb, .film.failed .film-world .fsh, .film.failed .film-world .fgl, .film.failed .film-line, .film.failed .t-done { opacity: 1; }
+.film.failed .t-run, .film.failed .ring.run { opacity: 0; }
+.film-sound { position: absolute; right: 12px; bottom: 12px; height: 34px; padding: 0 14px; border: 0; border-radius: 999px; background: var(--soft); color: var(--ink); font: 600 13px var(--font); cursor: pointer; }
 .film-sound[aria-pressed="true"] { background: var(--s-teal); color: var(--on-accent); }
+/* Zoom and full-screen buttons, outside the film's faded edges. */
+.film-controls { position: absolute; right: 0; bottom: 0; display: grid; border-radius: 10px; overflow: hidden; border: 1px solid var(--soft-2); background: var(--surface); }
+.film-controls button { display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 0; border-bottom: 1px solid var(--soft-2); background: none; color: var(--ink); cursor: pointer; transition: background-color 150ms ease; }
+.film-controls button:last-child { border-bottom: 0; }
+.film-controls button:disabled { color: var(--muted); opacity: .45; cursor: default; }
+.film-controls button:focus-visible { outline: 2px solid var(--s-teal); outline-offset: -2px; }
+@media (hover: hover) { .film-controls button:not(:disabled):hover { background: var(--soft); } }
+.film-controls svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+/* Full screen: the flow centred on the page background. */
+.hero-video:fullscreen { display: grid; place-items: center; margin: 0; padding: 32px; background: var(--ground); }
+.hero-video:fullscreen .film { width: min(100%, calc((100vh - 64px) * 1280 / 600)); }
+.hero-video:fullscreen .film-controls { right: 24px; bottom: 24px; }

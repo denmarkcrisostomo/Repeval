@@ -1,0 +1,480 @@
+// The landing page's hero demo: a short run of the demo shop as one chain, animated with anime.js.
+// Each stage is a box in the chain: it fans out to what it found or made, and those join into the next stage.
+//   Collect → files → Analyze → pages and endpoints → Plan → … → Results → screenshots and report
+// It grows while on screen (pausing when scrolled away), with the view panning along, in the page's own
+// light or dark colours, on a dotted grid like React Flow's. Once grown, tap a box to light up everything it
+// is connected to, drag to look around, and zoom or go full screen with the buttons.
+// It is built as plain DOM inside one element, so React renders only that element.
+
+import type { Timeline } from 'animejs';
+
+type Anime = typeof import('animejs');
+
+/** When each stage starts, in ms, and what a voice-over would say there. Record a voice-over to these times. */
+export const CUES = [
+  { at: 0, stage: 'collect', line: 'GitHub copies your repo onto a fresh machine. Repeval never receives your code.' },
+  { at: 1500, stage: 'analyze', line: 'It reads your code and finds every page and endpoint.' },
+  { at: 3000, stage: 'plan', line: "It plans the tests, and skips what it can't test yet, with the reason." },
+  { at: 4100, stage: 'make', line: 'It writes real Playwright tests.' },
+  { at: 5100, stage: 'run', line: 'Then it runs them, opening every page in a real browser.' },
+  { at: 6500, stage: 'results', line: 'Every page is photographed, and the report is saved.' },
+  { at: 7900, stage: 'bug', line: "And here's a real bug: the cart page throws an error." },
+] as const;
+const TOTAL = 8700;
+
+/* ---------- the chain, in world units ---------- */
+
+const W = 1280;
+const H = 600;
+const MID = H / 2;
+const SW = 170; // stage box
+const SH = 72;
+const IW = 210; // item box
+const IH = 50;
+const GAP = 62; // spacing of a fan
+const PITCH = 680; // from one stage to the next
+const stageX = (i: number) => i * PITCH;
+const fanX = (i: number) => stageX(i) + SW + 170; // a stage's fan, between it and the next stage
+const TESTED = ['home', 'about', 'cart', 'help', 'health', 'products'];
+
+interface Stage {
+  id: string;
+  name: string;
+  run: string;
+  done: string;
+  bug?: boolean;
+}
+const STAGES: Stage[] = [
+  { id: 'collect', name: 'Collect', run: 'copying repo', done: '2 source files' },
+  { id: 'analyze', name: 'Analyze', run: 'reading code', done: '5 pages, 3 API' },
+  { id: 'plan', name: 'Plan', run: 'choosing tests', done: '6 of 8 to test' },
+  { id: 'make', name: 'Make tests', run: 'writing tests', done: '2 test files' },
+  { id: 'run', name: 'Run', run: 'running tests', done: '5 passed · 1 bug', bug: true },
+  { id: 'results', name: 'Results', run: 'saving report', done: '4 screenshots' },
+];
+// What each stage fans out to: [id, title, sub, look, lanes it belongs to, screenshot]
+type Item = [string, string, string, string, string[], string?];
+const FANS: Item[][] = [
+  [
+    ['f-server', 'server.js', 'source file', 'file', ['home', 'about', 'cart', 'product', 'health', 'products', 'orders']],
+    ['f-help', 'public/help.html', 'source file', 'file', ['help']],
+  ],
+  [
+    ['n-home', '/', 'page', 'found', ['home']],
+    ['n-about', '/about', 'page', 'found', ['about']],
+    ['n-cart', '/cart', 'page', 'found', ['cart']],
+    ['n-help', '/help.html', 'page', 'found', ['help']],
+    ['n-product', '/products/:id', 'page', 'found', ['product']],
+    ['n-health', 'GET /api/health', 'endpoint', 'found', ['health']],
+    ['n-products', 'GET /api/products', 'endpoint', 'found', ['products']],
+    ['n-orders', 'POST /api/orders', 'endpoint', 'found', ['orders']],
+  ],
+  [
+    ['p-test', 'Test it · 6', '4 pages, 2 endpoints', 'passed', TESTED],
+    ['p-skip', 'Skipped · 2', 'need example IDs or a body', 'skip', ['product', 'orders']],
+  ],
+  [
+    ['t-pages', 'pages.spec.ts', '4 tests · Playwright', 'test passed', ['home', 'about', 'cart', 'help']],
+    ['t-api', 'api.spec.ts', '2 tests · Playwright', 'test passed', ['health', 'products']],
+  ],
+  [
+    ['r-pass', 'Passed · 5', 'no errors', 'passed', ['home', 'about', 'help', 'health', 'products']],
+    ['r-cart', 'Possible bug', '/cart: cartTotal is not defined', 'bug', ['cart']],
+  ],
+  [
+    ['s-home', '/', '', 'shot passed', ['home'], 'home'],
+    ['s-about', '/about', '', 'shot passed', ['about'], 'about'],
+    ['s-cart', '/cart', '', 'shot bug', ['cart'], 'cart'],
+    ['s-help', '/help.html', '', 'shot passed', ['help'], 'help'],
+    ['report', 'Report', '5 passed · 1 possible bug', 'bug', TESTED],
+  ],
+];
+// The skipped box doesn't lead anywhere: it stops at Plan's fan.
+const DEAD_ENDS = new Set(['p-skip']);
+
+interface Box {
+  id: string;
+  kind: 'stage' | 'item';
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  lanes: string[] | null;
+  stage?: Stage;
+  title?: string;
+  sub?: string;
+  look?: string;
+  shot?: string;
+}
+const BOXES: Box[] = [];
+STAGES.forEach((s, i) => BOXES.push({ id: 's:' + s.id, kind: 'stage', x: stageX(i), y: MID - SH / 2, w: SW, h: SH, lanes: null, stage: s }));
+FANS.forEach((fan, i) => {
+  const top = MID - ((fan.length - 1) * GAP) / 2 - IH / 2;
+  fan.forEach(([id, title, sub, look, lanes, shot], j) => BOXES.push({ id, kind: 'item', x: fanX(i), y: top + j * GAP, w: IW, h: IH, title, sub, look, lanes, shot }));
+});
+const BOX: Record<string, Box> = Object.fromEntries(BOXES.map((b) => [b.id, b]));
+const WORLD_W = fanX(FANS.length - 1) + IW;
+
+// Curved lines: a stage fans out to each of its boxes, and each box joins the next stage.
+const curve = (a: Box, b: Box) => {
+  const x1 = a.x + a.w, y1 = a.y + a.h / 2, x2 = b.x - 6, y2 = b.y + b.h / 2, c = (x2 - x1) * 0.5;
+  return `M${x1} ${y1}C${x1 + c} ${y1} ${x2 - c} ${y2} ${x2} ${y2}`;
+};
+type Line = { id: string; d: string; tone: 'ok' | 'bug' | 'skip'; lanes: string[] };
+const LINES: Line[] = [];
+FANS.forEach((fan, i) => {
+  const stage = BOX['s:' + STAGES[i].id], next = STAGES[i + 1] && BOX['s:' + STAGES[i + 1].id];
+  fan.forEach(([id, , , look, lanes]) => {
+    const tone = look.includes('bug') ? 'bug' : look === 'skip' ? 'skip' : 'ok';
+    LINES.push({ id: `l-out-${id}`, d: curve(stage, BOX[id]), tone, lanes });
+    if (next && !DEAD_ENDS.has(id)) LINES.push({ id: `l-in-${id}`, d: curve(BOX[id], next), tone: tone === 'bug' ? 'bug' : 'ok', lanes });
+  });
+});
+
+/* ---------- the camera ---------- */
+
+/** How far out the view sits while it grows: about three stages at a time. */
+const ZOOM = 0.6;
+const tyOf = (z: number) => (H - z * H) / 2; // keeps the chain centred vertically
+/** Centred on stage i and its fan. */
+const at = (i: number, s = ZOOM) => W / 2 - (s * (stageX(i) + fanX(i) + IW)) / 2;
+// The ends of the chain stop short of the stage's faded edges (12% each side), so they never look washed out.
+const EDGE = W * 0.13;
+const clampX = (x: number, s: number) =>
+  s * WORLD_W <= W - 2 * EDGE ? (W - s * WORLD_W) / 2 : Math.min(EDGE, Math.max(W - EDGE - s * WORLD_W, x));
+// The zoom buttons go from the whole chain at once to 120%.
+const MIN_ZOOM = (W - 2 * EDGE) / WORLD_W;
+const MAX_ZOOM = 1.2;
+
+/* ---------- markup ---------- */
+
+const img = (name: string) => `<img class="for-light" src="/img/${name}.png" alt=""><img class="for-dark" src="/img/${name}-dark.png" alt="">`;
+function boxHtml(b: Box) {
+  const pos = `style="left:${b.x}px;top:${b.y}px;width:${b.w}px;height:${b.h}px"`;
+  if (b.stage) {
+    const s = b.stage;
+    return `<div class="fst" data-box="${b.id}" ${pos}><i class="ring run"></i>${s.bug ? '<i class="ring bug"></i>' : ''}<b>${s.name}</b><span class="fst-text${s.bug ? ' bugtext' : ''}"><span class="t-run"><i></i>${s.run}</span><span class="t-done"><i></i>${s.done}</span></span></div>`;
+  }
+  const attrs = `data-box="${b.id}" role="button" tabindex="-1" aria-label="${b.title}${b.sub ? ': ' + b.sub : ''}" ${pos}`;
+  if (b.shot) return `<div class="fsh ${b.look!.split(' ')[1]}" ${attrs}>${img(b.shot)}<span>${b.title}</span></div>`;
+  return `<div class="fb ${b.look}" ${attrs}><b>${b.title}</b><span>${b.sub}</span></div>`;
+}
+function markup() {
+  const marker = (k: string) =>
+    `<marker id="film-arrow-${k}" viewBox="-10 -10 20 20" markerWidth="12" markerHeight="12" orient="auto"><polyline class="tip ${k}" points="-5,-4 0,0 -5,4 -5,-4"/></marker>`;
+  return `<div class="film-stage" role="group" aria-label="A run of the demo shop as a flow. Tap a box to follow it, drag to look around.">
+  <div class="film-dots" aria-hidden="true"></div>
+  <div class="film-world" style="width:${WORLD_W}px">
+    <svg class="film-lines" width="${WORLD_W}" height="${H}" aria-hidden="true"><defs>${['ok', 'bug', 'skip'].map(marker).join('')}</defs>${LINES.map(
+      (l) => `<path data-line="${l.id}" d="${l.d}" class="film-line ${l.tone}" marker-end="url(#film-arrow-${l.tone})"/>`,
+    ).join('')}</svg>
+    ${BOXES.map(boxHtml).join('')}
+    <i class="film-sel" aria-hidden="true"></i>
+  </div>
+</div>`;
+}
+
+/* ---------- the growth timeline ---------- */
+
+function grow(root: HTMLElement, anime: Anime, onTime: (ms: number) => void, onDone: () => void): Timeline {
+  const { createTimeline, stagger, svg } = anime;
+  const one = (sel: string) => root.querySelector<HTMLElement>(sel)!;
+  const tl = createTimeline({ autoplay: false, defaults: { ease: 'out(3)' }, onUpdate: (t) => onTime(t.currentTime), onComplete: onDone });
+  const pop = (targets: HTMLElement[], t: number, each = 0) =>
+    targets.length && tl.add(targets, { opacity: [0, 1], filter: ['blur(3px)', 'blur(0px)'], duration: 380, delay: each ? stagger(each) : 0 }, t);
+  const draw = (ids: string[], t: number, each = 0) => {
+    const els = ids.map((id) => root.querySelector<SVGPathElement>(`[data-line="${id}"]`)).filter((x): x is SVGPathElement => !!x);
+    if (!els.length) return;
+    // A line stays hidden until it starts drawing, or its arrowhead would show on its own.
+    tl.add(els, { opacity: [0, 1], duration: 60, delay: each ? stagger(each) : 0 }, t);
+    tl.add(svg.createDrawable(els), { draw: ['0 0', '0 1'], duration: 420, ease: 'inOut(2)', delay: each ? stagger(each) : 0 }, t);
+  };
+  // A stage starts amber (running) and turns to done. Only opacity animates, so colours follow the theme.
+  const stage = (i: number, start: number, done: number) => {
+    const el = one(`[data-box="s:${STAGES[i].id}"]`);
+    pop([el], start);
+    tl.add(el.querySelector<HTMLElement>('.ring.run')!, { opacity: [1, 0], duration: 300 }, done);
+    const bug = el.querySelector<HTMLElement>('.ring.bug');
+    if (bug) tl.add(bug, { opacity: [0, 1], duration: 300 }, done);
+    tl.add(el.querySelector<HTMLElement>('.t-run')!, { opacity: [1, 0], duration: 200 }, done);
+    tl.add(el.querySelector<HTMLElement>('.t-done')!, { opacity: [0, 1], duration: 250 }, done + 120);
+  };
+  const fan = (i: number, t: number, each: number) => {
+    const ids = FANS[i].map((f) => f[0]);
+    draw(ids.map((id) => 'l-out-' + id), t - 100, each);
+    pop(ids.map((id) => one(`[data-box="${id}"]`)), t, each);
+  };
+  const join = (i: number, t: number) => draw(FANS[i].map((f) => 'l-in-' + f[0]), t, 40);
+  const cam = (i: number, t: number) =>
+    tl.add(one('.film-world'), { translateX: clampX(at(i), ZOOM), translateY: tyOf(ZOOM), scale: ZOOM, duration: 900, ease: 'inOut(3)' }, t);
+
+  tl.set(one('.film-world'), { translateX: clampX(at(0), ZOOM), translateY: tyOf(ZOOM), scale: ZOOM }, 0);
+  stage(0, 100, 1200);
+  fan(0, 500, 200);
+  join(0, 1300);
+  cam(1, 1300);
+  stage(1, 1600, 2800);
+  fan(1, 1900, 100);
+  join(1, 2900);
+  cam(2, 2900);
+  stage(2, 3200, 3900);
+  fan(2, 3400, 200);
+  join(2, 4000);
+  cam(3, 4000);
+  stage(3, 4200, 4900);
+  fan(3, 4400, 200);
+  join(3, 5000);
+  cam(4, 5000);
+  stage(4, 5200, 6300);
+  fan(4, 5500, 450);
+  join(4, 6400);
+  cam(5, 6400);
+  stage(5, 6600, 7400);
+  fan(5, 6800, 120);
+  return tl;
+}
+
+/* ---------- mounting ---------- */
+
+const ICONS = {
+  in: 'M12 5v14M5 12h14',
+  out: 'M5 12h14',
+  full: 'M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5',
+  exit: 'M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5',
+};
+const icon = (d: string) => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${d}"/></svg>`;
+
+/**
+ * Builds the demo inside `el` (its parent gets the zoom and full-screen buttons). Pass `audio` for a
+ * voice-over that follows the growth. Returns a function that takes it all down again.
+ */
+export function mountHeroFlow(el: HTMLElement, loadAnime: () => Promise<Anime>, opts: { audio?: string } = {}): () => void {
+  el.innerHTML = markup();
+  const stageEl = el.querySelector<HTMLElement>('.film-stage')!;
+  const world = el.querySelector<HTMLElement>('.film-world')!;
+  const sel = el.querySelector<HTMLElement>('.film-sel')!;
+  const dots = el.querySelector<HTMLElement>('.film-dots')!;
+  const host = el.parentElement!;
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const off: (() => void)[] = [];
+  const on = <K extends keyof HTMLElementEventMap>(t: HTMLElement, type: K, fn: (e: HTMLElementEventMap[K]) => void) => {
+    t.addEventListener(type, fn);
+    off.push(() => t.removeEventListener(type, fn));
+  };
+
+  let k = 0.5;
+  const ro = new ResizeObserver(() => {
+    k = el.clientWidth / W;
+    el.style.setProperty('--k', String(k));
+  });
+  ro.observe(el);
+  off.push(() => ro.disconnect());
+
+  let anime: Anime | null = null;
+  let tl: Timeline | null = null;
+  let ready = false;
+  let selected: string | null = null;
+  let viewX = 0; // the world's translateX once interactive
+  let zoom = ZOOM;
+
+  // An optional voice-over. The timeline is the master clock; the audio follows it.
+  let audio: HTMLAudioElement | null = null;
+  let soundOn = false;
+  if (opts.audio) {
+    const a = Object.assign(document.createElement('audio'), { src: opts.audio, preload: 'auto' });
+    const btn = Object.assign(document.createElement('button'), { type: 'button', className: 'film-sound', textContent: 'Turn sound on' });
+    host.append(a, btn);
+    off.push(() => (a.remove(), btn.remove()));
+    audio = a;
+    on(btn, 'click', () => {
+      soundOn = !soundOn;
+      btn.textContent = soundOn ? 'Sound on' : 'Turn sound on';
+      btn.setAttribute('aria-pressed', String(soundOn));
+      if (!soundOn || ready) return a.pause();
+      a.currentTime = tl ? tl.currentTime / 1000 : 0;
+      if (tl && !tl.paused) a.play().catch(() => (soundOn = false));
+    });
+  }
+
+  // The dots follow the view like React Flow's: their spacing pans and zooms, their size stays the same.
+  function syncDots() {
+    const m = new DOMMatrix(getComputedStyle(world).transform);
+    let gap = 32 * m.a;
+    while (gap < 16) gap *= 2; // zoomed far out: every 2nd or 4th dot, so the grid never turns to noise
+    dots.style.backgroundSize = `${gap}px ${gap}px`;
+    dots.style.backgroundPosition = `${m.e}px ${m.f}px`;
+  }
+  const onTime = (ms: number) => {
+    syncDots();
+    if (audio && soundOn && !audio.paused && Math.abs(audio.currentTime * 1000 - ms) > 250) audio.currentTime = ms / 1000;
+  };
+
+  /* ---------- tapping a box lights everything it is connected to ---------- */
+  const allBoxes = [...world.querySelectorAll<HTMLElement>('[data-box]')];
+  const allLines = [...world.querySelectorAll<SVGPathElement>('[data-line]')];
+  const lineLanes: Record<string, string[]> = Object.fromEntries(LINES.map((l) => [l.id, l.lanes]));
+  function moveTo(x: number, duration: number) {
+    viewX = clampX(x, zoom);
+    anime!.animate(world, { translateX: viewX, translateY: tyOf(zoom), scale: zoom, duration: reduce ? 0 : duration, ease: 'inOut(3)', onUpdate: syncDots, onComplete: syncDots });
+    syncControls();
+  }
+  function light(id: string | null, follow = true) {
+    selected = id;
+    const want = id ? new Set(BOX[id].lanes) : null;
+    const lit = (lanes: string[] | null) => !want || !lanes || lanes.some((l) => want.has(l));
+    const d = reduce ? 0 : 320;
+    allBoxes.forEach((b) => anime!.animate(b, { opacity: lit(BOX[b.dataset.box!].lanes) ? 1 : 0.2, duration: d }));
+    allLines.forEach((l) => anime!.animate(l, { opacity: lit(lineLanes[l.dataset.line!]) ? 1 : 0.12, duration: d }));
+    if (!id) {
+      anime!.animate(sel, { opacity: 0, duration: d });
+      return;
+    }
+    const b = BOX[id];
+    anime!.animate(sel, { left: b.x - 4, top: b.y - 4, width: b.w + 8, height: b.h + 8, opacity: 1, duration: d && sel.style.opacity === '1' ? d : 0 });
+    if (follow) moveTo(W / 2 - zoom * (b.x + b.w / 2), 600);
+  }
+  // When the run has grown: the first possible bug lights up, like on the real run page.
+  function finish() {
+    if (ready) return;
+    ready = true;
+    el.classList.add('ready');
+    allBoxes.forEach((b) => b.hasAttribute('role') && (b.tabIndex = 0));
+    audio?.pause();
+    zoom = ZOOM;
+    viewX = clampX(at(5), ZOOM);
+    light('r-cart', false);
+    moveTo(at(5), 700); // Results, with the bug before it and the screenshots it ends in
+  }
+  const finishNow = () => {
+    if (!ready && tl) {
+      tl.seek(TOTAL);
+      finish();
+    }
+  };
+  function tap(target: Element) {
+    if (!anime) return;
+    finishNow();
+    const box = target.closest<HTMLElement>('[data-box][role]');
+    light(box && selected !== box.dataset.box ? box.dataset.box! : null);
+  }
+
+  // Drag to look around; a press that doesn't move is a tap.
+  let drag: { x: number; from: number; moved: boolean } | null = null;
+  on(stageEl, 'pointerdown', (e) => {
+    if (!ready) return;
+    drag = { x: e.clientX, from: viewX, moved: false };
+    stageEl.setPointerCapture(e.pointerId);
+  });
+  on(stageEl, 'pointermove', (e) => {
+    if (!drag || !anime) return;
+    const dx = (e.clientX - drag.x) / k;
+    if (Math.abs(dx) > 6) drag.moved = true;
+    if (!drag.moved) return;
+    viewX = clampX(drag.from + dx, zoom);
+    anime.animate(world, { translateX: viewX, duration: 0, onComplete: syncDots });
+  });
+  on(stageEl, 'pointerup', (e) => {
+    const d = drag;
+    drag = null;
+    if (d && !d.moved) tap(document.elementFromPoint(e.clientX, e.clientY) || stageEl);
+  });
+  on(stageEl, 'click', (e) => {
+    if (!ready) tap(e.target as Element);
+  });
+  on(stageEl, 'keydown', (e) => {
+    const t = e.target as Element;
+    if ((e.key === 'Enter' || e.key === ' ') && t.closest('[data-box][role]')) {
+      e.preventDefault();
+      tap(t);
+    }
+  });
+
+  /* ---------- zoom in, zoom out, full screen ---------- */
+  // The buttons sit outside the film, so its faded edges never fade them.
+  const controls = document.createElement('div');
+  controls.className = 'film-controls';
+  controls.innerHTML =
+    `<button type="button" data-zoom="in" aria-label="Zoom in" title="Zoom in">${icon(ICONS.in)}</button>` +
+    `<button type="button" data-zoom="out" aria-label="Zoom out" title="Zoom out">${icon(ICONS.out)}</button>` +
+    (document.fullscreenEnabled ? `<button type="button" data-full aria-label="Full screen" title="Full screen">${icon(ICONS.full)}</button>` : '');
+  host.appendChild(controls);
+  off.push(() => controls.remove());
+  function setZoom(z: number) {
+    if (!anime) return;
+    finishNow();
+    const centre = (W / 2 - viewX) / zoom; // the world point in the middle stays there
+    zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z));
+    moveTo(W / 2 - centre * zoom, reduce ? 0 : 300);
+  }
+  function syncControls() {
+    controls.querySelector<HTMLButtonElement>('[data-zoom="in"]')!.disabled = zoom >= MAX_ZOOM - 0.001;
+    controls.querySelector<HTMLButtonElement>('[data-zoom="out"]')!.disabled = zoom <= MIN_ZOOM + 0.001;
+  }
+  on(controls, 'click', (e) => {
+    const b = (e.target as Element).closest<HTMLButtonElement>('button');
+    if (!b) return;
+    if (b.dataset.zoom) return setZoom(zoom * (b.dataset.zoom === 'in' ? 1.25 : 0.8));
+    if (document.fullscreenElement === host) document.exitFullscreen();
+    else host.requestFullscreen().catch(() => undefined);
+  });
+  const onFull = () => {
+    const full = document.fullscreenElement === host;
+    const b = controls.querySelector<HTMLButtonElement>('[data-full]');
+    if (!b) return;
+    b.innerHTML = icon(full ? ICONS.exit : ICONS.full);
+    b.setAttribute('aria-label', full ? 'Exit full screen' : 'Full screen');
+    b.title = full ? 'Exit full screen' : 'Full screen';
+  };
+  document.addEventListener('fullscreenchange', onFull);
+  off.push(() => document.removeEventListener('fullscreenchange', onFull));
+
+  /* ---------- start ---------- */
+  let dead = false;
+  let io: IntersectionObserver | null = null;
+  loadAnime().then(
+    (a) => {
+      if (dead) return;
+      anime = a;
+      tl = grow(stageEl, a, onTime, finish);
+      // Lets the dev server's browser tests drive the demo; left out of production builds.
+      if (process.env.NODE_ENV !== 'production') (window as unknown as { __film?: Timeline }).__film = tl;
+      if (reduce) {
+        tl.seek(TOTAL);
+        finish();
+        return;
+      }
+      io = new IntersectionObserver(
+        ([e]) => {
+          if (ready || !tl) return;
+          if (e.isIntersecting) {
+            tl.play();
+            if (audio && soundOn) {
+              audio.currentTime = tl.currentTime / 1000;
+              audio.play().catch(() => (soundOn = false));
+            }
+          } else {
+            tl.pause();
+            audio?.pause();
+          }
+        },
+        { threshold: 0.4 },
+      );
+      io.observe(el);
+    },
+    () => {
+      // anime.js didn't load: show the end of the chain, still.
+      el.classList.add('failed');
+      world.style.transform = `translate(${clampX(at(5), ZOOM)}px, ${tyOf(ZOOM)}px) scale(${ZOOM})`;
+      syncDots();
+    },
+  );
+
+  return () => {
+    dead = true;
+    io?.disconnect();
+    tl?.revert();
+    off.forEach((f) => f());
+    if (document.fullscreenElement === host) document.exitFullscreen().catch(() => undefined);
+    el.innerHTML = '';
+  };
+}
