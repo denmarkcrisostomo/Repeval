@@ -5,14 +5,16 @@ import { getAccess } from '@/lib/session';
 
 type Ctx = { params: Promise<{ owner: string; repo: string; runId: string }> };
 
-/** Step-by-step status of one run, polled by the live board. */
-export async function GET(_req: Request, { params }: Ctx) {
+/** Step-by-step status of one run, polled by the live board, with the run's names-only progress once it has some. */
+export async function GET(req: Request, { params }: Ctx) {
   const { owner, repo, runId } = await params;
   if (!isRepoName(owner) || !isRepoName(repo) || !isRunId(runId)) return Response.json({ error: 'Not found' }, { status: 404 });
   const access = await getAccess();
   if (!access) return Response.json({ error: 'Signed out. Sign in again to keep watching this run.' }, { status: 401 });
   try {
-    const status = await getRunStatus(access, owner, repo, runId);
+    // ?p= is the progress stage the browser already has, so only newer progress is fetched.
+    const checked = Math.min(3, Math.max(0, Number(new URL(req.url).searchParams.get('p')) || 0));
+    const status = await getRunStatus(access, owner, repo, runId, checked);
     if (!status) return Response.json({ error: 'This run was not found.' }, { status: 404 });
     return Response.json(status, { headers: { 'Cache-Control': 'no-store' } });
   } catch (e) {

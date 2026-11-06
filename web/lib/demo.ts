@@ -1,7 +1,8 @@
 import 'server-only';
 import { cookies } from 'next/headers';
+import DEMO_PROGRESS from './demo-progress.json';
 import { STEPS } from './steps';
-import type { Repo, RunStatus, RunStep, RunSummary } from './types';
+import type { Progress, Repo, RunStatus, RunStep, RunSummary } from './types';
 
 // Demo mode: example repos and a simulated run of the real demo-shop example, so the whole flow
 // can be tried without a GitHub App. State lives in two small cookies; nothing is stored anywhere else.
@@ -148,10 +149,23 @@ function simulateSave(id: string): RunStatus {
   };
 }
 
-export async function getRunStatus(repo: string, id: string): Promise<RunStatus | null> {
+export async function getRunStatus(repo: string, id: string, checked = 0): Promise<RunStatus | null> {
   if (id.startsWith('s')) return Date.now() - startOf(id) < 3600_000 ? simulateSave(id) : null;
   if (!(await runsFor(repo)).includes(id)) return null;
-  return simulate(repo, id);
+  const status = simulate(repo, id);
+  if (status.phase === 'done') return status;
+  // Like workflow v3: a names-only progress file once Analyze, Plan and Generate are done.
+  const shared = ['analyze', 'plan', 'generate'].filter((k) => status.steps.find((s) => s.key === k)?.state === 'passed').length;
+  if (shared <= checked) return { ...status, progressChecked: checked };
+  const full = DEMO_PROGRESS as Progress;
+  const progress: Progress = {
+    version: 1,
+    stage: (['analyze', 'plan', 'generate'] as const)[shared - 1],
+    found: full.found,
+    ...(shared >= 2 ? { plan: full.plan } : {}),
+    ...(shared >= 3 ? { tests: full.tests } : {}),
+  };
+  return { ...status, progressChecked: shared, progress };
 }
 
 /** The demo report is the real report from examples/express-app, bundled as a static file. */

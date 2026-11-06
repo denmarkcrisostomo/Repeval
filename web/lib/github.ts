@@ -1,7 +1,8 @@
 import 'server-only';
+import { unzipSync } from 'fflate';
 import { findStep } from './steps';
-import type { Repo, RunPhase, RunStatus, RunStep, RunSummary, StepState, TestChoice } from './types';
-import { ARTIFACT_NAME, SAVE_RUN_TITLE, WORKFLOW_FILE, WORKFLOW_NAME } from './workflow';
+import type { Progress, Repo, RunPhase, RunStatus, RunStep, RunSummary, StepState, TestChoice } from './types';
+import { ARTIFACT_NAME, PROGRESS_ARTIFACT, SAVE_RUN_TITLE, WORKFLOW_FILE, WORKFLOW_NAME } from './workflow';
 
 // Thin GitHub REST client. Runs on the server only, with the signed-in user's own token.
 // The GitHub App behind that token has Actions (read/write) and Metadata (read) permissions
@@ -188,7 +189,18 @@ function stepState(s: GhStep): StepState {
   return 'failed';
 }
 
-export async function getRunStatus(token: string, owner: string, repo: string, runId: string): Promise<RunStatus> {
+// Workflow v3 saves a names-only progress file after these steps.
+const SHARE_STEP: Record<string, number> = {
+  'share progress after analyze': 1,
+  'share progress after plan': 2,
+  'share progress after generate': 3,
+};
+
+/**
+ * Status of one run. `checked` is the progress stage the browser already has (or knows is missing), so the
+ * artifact list is only asked for when the run has just shared something newer: a few extra calls per run.
+ */
+export async function getRunStatus(token: string, owner: string, repo: string, runId: string, checked = 0): Promise<RunStatus> {
   const base = repoPath(owner, repo);
   const run = await json<GhRun>(token, `${base}/actions/runs/${runId}`);
   const { jobs } = await json<{ jobs: { name: string; conclusion: string | null; steps?: GhStep[] }[] }>(
@@ -208,8 +220,17 @@ export async function getRunStatus(token: string, owner: string, repo: string, r
   }
   const summary = toSummary(run);
   let hasReport = false;
-  if (summary.phase === 'done') hasReport = (await findReportArtifact(token, owner, repo, runId)) !== null;
-  return { ...summary, steps, hasReport };
+  if (summary.phase === 'done') {
+    hasReport = (await findReportArtifact(token, owner, repo, runId)) !== null;
+    return { ...summary, steps, hasReport };
+  }
+  const shared = Math.max(
+    0,
+    ...ghSteps.filter((s) => s.status === 'completed' && s.conclusion === 'success').map((s) => SHARE_STEP[s.name.trim().toLowerCase()] ?? 0),
+  );
+  if (shared <= checked) return { ...summary, steps, hasReport, progressChecked: checked };
+  const progress = await fetchProgress(token, owner, repo, runId, shared).catch(() => null);
+  return { ...summary, steps, hasReport, progressChecked: shared, ...(progress ? { progress } : {}) };
 }
 
 /* ---------- the report artifact ---------- */
@@ -228,6 +249,52 @@ async function findReportArtifact(token: string, owner: string, repo: string, ru
     `${repoPath(owner, repo)}/actions/runs/${runId}/artifacts?per_page=20`,
   );
   return artifacts.find((a) => a.name === ARTIFACT_NAME && !a.expired) ?? null;
+}
+
+const str = (v: unknown, max = 300): string | null => (typeof v === 'string' && v.length <= max ? v : null);
+
+/** Keeps only the fields the flow view uses, with sane sizes, from a progress file the run wrote. */
+function cleanProgress(raw: unknown): Progress | null {
+  const r = raw as Partial<Progress> | null;
+  if (!r || r.version !== 1 || !Array.isArray(r.found)) return null;
+  const stage = r.stage === 'plan' || r.stage === 'generate' ? r.stage : 'analyze';
+  const found = r.found.slice(0, 2000).flatMap((f) => {
+    const id = str(f?.id), label = str(f?.label), source = str(f?.source);
+    const kind = f?.kind === 'page' || f?.kind === 'endpoint' || f?.kind === 'function' ? f.kind : null;
+    return id && label && source && kind ? [{ id, kind, label, source }] : [];
+  });
+  const out: Progress = { version: 1, stage, found };
+  if (Array.isArray(r.plan))
+    out.plan = r.plan.slice(0, 4000).flatMap((t) => {
+      const id = str(t?.id);
+      const reason = str(t?.reason);
+      return id ? [{ id, enabled: t.enabled === true, ...(reason ? { reason } : {}) }] : [];
+    });
+  if (Array.isArray(r.tests))
+    out.tests = r.tests.slice(0, 500).flatMap((t) => {
+      const file = str(t?.file);
+      return file && Array.isArray(t.targets) ? [{ file, targets: t.targets.slice(0, 2000).flatMap((x) => str(x) ?? []) }] : [];
+    });
+  return out;
+}
+
+/**
+ * The newest names-only progress file the run has shared. It is unzipped in memory and only the
+ * names the flow view draws are passed on to the browser. Nothing is written anywhere.
+ */
+async function fetchProgress(token: string, owner: string, repo: string, runId: string, upTo: number): Promise<Progress | null> {
+  const { artifacts } = await json<{ artifacts: GhArtifact[] }>(token, `${repoPath(owner, repo)}/actions/runs/${runId}/artifacts?per_page=20`);
+  for (let n = upTo; n >= 1; n--) {
+    const a = artifacts.find((x) => x.name === PROGRESS_ARTIFACT + n && !x.expired);
+    if (!a || a.size_in_bytes > 2_000_000) continue;
+    const res = await call(token, a.archive_download_url, { redirect: 'follow' });
+    if (!res.ok) continue;
+    const files = unzipSync(new Uint8Array(await res.arrayBuffer()));
+    const entry = files['progress.json'];
+    if (!entry) continue;
+    return cleanProgress(JSON.parse(new TextDecoder().decode(entry)));
+  }
+  return null;
 }
 
 /**

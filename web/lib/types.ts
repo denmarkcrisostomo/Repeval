@@ -42,6 +42,19 @@ export interface RunStatus extends RunSummary {
   steps: RunStep[];
   /** True when the repeval-report artifact exists and has not expired. */
   hasReport: boolean;
+  /** The latest progress stage the server looked for (1 Analyze, 2 Plan, 3 Generate), found or not. */
+  progressChecked?: number;
+  /** Names-only progress from workflow v3, when a newer stage than the browser asked about was found. */
+  progress?: Progress;
+}
+
+/** What the run has found, planned and written so far. Names only, never code (see the CLI's src/core/progress.ts). */
+export interface Progress {
+  version: 1;
+  stage: 'analyze' | 'plan' | 'generate';
+  found: { id: string; kind: 'page' | 'endpoint' | 'function'; label: string; source: string }[];
+  plan?: { id: string; enabled: boolean; reason?: string }[];
+  tests?: { file: string; targets: string[] }[];
 }
 
 export const TEST_CHOICES = ['all', 'unit', 'e2e'] as const;

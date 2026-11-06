@@ -40,10 +40,11 @@ export async function startSave(a: Access, repo: Repo, fromRunId: string): Promi
   return a.kind === 'demo' ? demo.startSave() : gh.startSave(a.token, repo.owner, repo.name, repo.defaultBranch, fromRunId, a.login);
 }
 
-export async function getRunStatus(a: Access, owner: string, name: string, runId: string): Promise<RunStatus | null> {
-  if (a.kind === 'demo') return demo.getRunStatus(name, runId);
+/** `checked`: the progress stage the browser already has, so only newer progress is fetched. */
+export async function getRunStatus(a: Access, owner: string, name: string, runId: string, checked = 0): Promise<RunStatus | null> {
+  if (a.kind === 'demo') return demo.getRunStatus(name, runId, checked);
   try {
-    return await gh.getRunStatus(a.token, owner, name, runId);
+    return await gh.getRunStatus(a.token, owner, name, runId, checked);
   } catch (e) {
     if (e instanceof gh.GitHubError && e.status === 404) return null;
     throw e;
