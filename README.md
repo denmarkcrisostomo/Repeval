@@ -18,17 +18,17 @@ No AI is needed for this version. AI mode (real assertions, user flows, self-hea
 ## What it does
 
 ```
-① Collect files → ② Understand the repo → ③ Plan → ④ Make tests → ⑤ Run → ⑥ Results
+Collect files → Understand the repo → Plan → Make tests → Run → Results
 ```
 
 | Step | What happens |
 |---|---|
-| ① Collect | Finds source files, skipping `node_modules`, build output and test files. |
-| ② Understand | Detects the stack (Next.js, Vite, Express, NestJS, SvelteKit, Remix, React Router…), maps exported functions with ts-morph, finds pages and API endpoints, and works out how to start the app. |
-| ③ Plan | Writes `.repeval/repeval-plan.json`: what to test, with which framework, at what priority. Anything it can't test yet is listed with a reason. |
-| ④ Make tests | Writes Vitest and Playwright files into `.repeval/`. Your own files are never touched. |
-| ⑤ Run | Installs dependencies if needed, starts your app, runs the tests. |
-| ⑥ Results | `repeval-report/index.html`: a flow view built with React Flow, every test result, a screenshot gallery and the generated code. It works offline. |
+| Collect | Finds source files, skipping `node_modules`, build output and test files. |
+| Understand | Detects the stack (Next.js, Vite, Express, NestJS, SvelteKit, Remix, React Router…), maps exported functions with ts-morph, finds pages and API endpoints, and works out how to start the app. |
+| Plan | Writes `.repeval/repeval-plan.json`: what to test, with which framework, at what priority. Anything it can't test yet is listed with a reason. |
+| Make tests | Writes Vitest and Playwright files into `.repeval/`. Your own files are never touched. |
+| Run | Installs dependencies if needed, starts your app, runs the tests. |
+| Results | `repeval-report/index.html`: a flow view built with React Flow, every test result, a screenshot gallery and the generated code. It works offline. |
 
 ### The tests it writes (no AI)
 
@@ -49,10 +49,10 @@ No AI is needed for this version. AI mode (real assertions, user flows, self-hea
 
 ```bash
 npx repeval run [dir]        # everything below, in order
-npx repeval analyze [dir]    # ① ②  writes .repeval/analysis.json
-npx repeval plan [dir]       # ③    --tests all|unit|e2e|load, -i to review in a checklist
-npx repeval generate [dir]   # ④    writes tests into .repeval/
-npx repeval test [dir]       # ⑤ ⑥  runs them and writes repeval-report/
+npx repeval analyze [dir]    # Collect + Understand: writes .repeval/analysis.json
+npx repeval plan [dir]       # Plan: --tests all|unit|e2e|load, -i to review in a checklist
+npx repeval generate [dir]   # Make tests: writes tests into .repeval/
+npx repeval test [dir]       # Run + Results: runs them and writes repeval-report/
 npx repeval report [dir]     # rebuild the HTML report from the last run
 npx repeval init [dir]       # add .github/workflows/repeval.yml
 ```
