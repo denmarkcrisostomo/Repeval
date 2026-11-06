@@ -3,15 +3,12 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { loadReport, type LoadedReport } from '@/lib/report-client';
-import { useRunView } from '@/lib/run-view';
 import { STEPS } from '@/lib/steps';
 import type { Progress, RunStatus } from '@/lib/types';
 import { clock } from '@/lib/time';
-import { Board } from './Board';
 import { RunFlow } from './RunFlowLazy';
-import { ViewSwitch } from './ViewSwitch';
 
-/** The live run screen: polls GitHub (through this site's API) and flips the board as steps finish. */
+/** The live run screen: polls GitHub (through this site's API) and grows the flow as the run goes. */
 export function LiveRun({ owner, repo, initial, pollMs }: { owner: string; repo: string; initial: RunStatus; pollMs: number }) {
   const [run, setRun] = useState(initial);
   // Names-only progress from workflow v3: lets the flow grow its lanes while the run is still going.
@@ -25,7 +22,6 @@ export function LiveRun({ owner, repo, initial, pollMs }: { owner: string; repo:
   const [reportError, setReportError] = useState<string | null>(null);
   const base = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
   const done = run.phase === 'done';
-  const [view, setView] = useRunView();
   // Watched live: the flow's lanes grow out when the report arrives. Opened later: they're all there at once.
   const reveal = useRef(initial.phase !== 'done').current;
 
@@ -108,7 +104,7 @@ export function LiveRun({ owner, repo, initial, pollMs }: { owner: string; repo:
     else if (!run.hasReport) nowText = 'The run ended without a report. The run on GitHub shows what happened.';
     else nowText = 'Loading the report from GitHub.';
   } else if (run.phase === 'running' && finished > 0) {
-    // Between two of the board's steps, e.g. while the workflow shares its progress.
+    // Between two of the run's steps, e.g. while the workflow shares its progress.
     const last = [...STEPS].reverse().find((s) => run.steps.find((x) => x.key === s.key)?.state === 'passed');
     nowStep = last ? `${last.name} done` : 'Between steps';
     nowText = 'Saving what this step found and starting the next one.';
@@ -139,20 +135,15 @@ export function LiveRun({ owner, repo, initial, pollMs }: { owner: string; repo:
         </div>
       </div>
       {error && <p className="notice warn">{error}</p>}
-      <div className={'live-grid' + (view === 'flow' ? ' flow-mode' : '')}>
+      <div className="live-grid">
         <section>
-          <ViewSwitch view={view} onChange={setView} />
-          {view === 'flow' && noProgress && !progress && !report && (
+          {noProgress && !progress && !report && (
             <p className="notice flow-hint">
               This run&apos;s Repeval doesn&apos;t share its progress, so each page, endpoint and function appears when the report is ready. Live boxes
               need Repeval 0.1.4 or later and workflow v3.
             </p>
           )}
-          {view === 'flow' ? (
-            <RunFlow id="flow-live" steps={run.steps} done={done} progress={progress} report={report} reveal={reveal} />
-          ) : (
-            <Board title={`${owner} / ${repo}`} steps={run.steps} done={done} />
-          )}
+          <RunFlow id="flow-live" steps={run.steps} done={done} progress={progress} report={report} reveal={reveal} />
           <div className={'result-bar' + (done ? ' show' : '')} aria-live="polite">
             {summary ? (
               <>

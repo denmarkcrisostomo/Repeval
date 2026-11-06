@@ -240,7 +240,7 @@ export default async function Home() {
                 <li><b>Sign in with GitHub</b><span>Repeval asks only to run its workflow and see repo names, never to read your code.</span></li>
                 <li><b>Pick a repo</b><span>Only the repos you allowed on GitHub are listed.</span></li>
                 <li><b>Add one workflow file</b><span>You read it and commit it yourself, on GitHub&apos;s own page.</span></li>
-                <li><b>Press Run and watch the board</b><span>Each step shows live, then the report opens with every screenshot.</span></li>
+                <li><b>Press Run and watch the flow</b><span>Every page, endpoint and function appears as it is found and tested, then the report opens with every screenshot.</span></li>
               </ol>
               <p style={{ margin: 0, color: 'var(--muted)', textAlign: 'center', textWrap: 'balance' }}>
                 Free for public repos. Private repos use the Actions minutes included with your GitHub plan.

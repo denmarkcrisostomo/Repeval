@@ -1,14 +1,12 @@
-import type { StepState } from './types';
-
-// The workflow's steps as the board shows them. The names match templates/repeval.yml;
-// GitHub's own housekeeping steps ("Set up job", "Post Checkout"…) are left off the board.
+// The workflow's steps as the run view uses them. The names match templates/repeval.yml;
+// GitHub's own housekeeping steps ("Set up job", "Post Checkout"…) and the share steps are left out.
 export interface StepInfo {
   key: string;
   /** Step name in the workflow file. */
   name: string;
   /** Which of the six pipeline stages it belongs to. */
   stage: string;
-  /** Shown on the board while the step runs. */
+  /** Shown on the step's stage box while it runs. */
   doing: string;
   /** Plain-language explanation for the "What's happening" card. */
   explain: string;
@@ -24,13 +22,6 @@ export const STEPS: StepInfo[] = [
   { key: 'save', name: 'Save report', stage: 'Results', doing: 'uploading', explain: 'Saving the report in your repo for 7 days. The machine is then deleted.' },
 ];
 
-export const BOARD_LABEL: Record<StepState, string> = {
-  waiting: 'waiting',
-  running: 'running',
-  passed: 'passed',
-  failed: 'failed',
-  skipped: 'skipped',
-};
 
 export function findStep(name: string): StepInfo | undefined {
   return STEPS.find((s) => s.name.toLowerCase() === name.trim().toLowerCase());

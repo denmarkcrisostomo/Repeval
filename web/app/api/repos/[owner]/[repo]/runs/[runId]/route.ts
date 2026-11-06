@@ -5,7 +5,7 @@ import { getAccess } from '@/lib/session';
 
 type Ctx = { params: Promise<{ owner: string; repo: string; runId: string }> };
 
-/** Step-by-step status of one run, polled by the live board, with the run's names-only progress once it has some. */
+/** Step-by-step status of one run, polled by the live run page, with the run's names-only progress once it has some. */
 export async function GET(req: Request, { params }: Ctx) {
   const { owner, repo, runId } = await params;
   if (!isRepoName(owner) || !isRepoName(repo) || !isRunId(runId)) return Response.json({ error: 'Not found' }, { status: 404 });

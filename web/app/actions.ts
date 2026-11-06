@@ -19,7 +19,7 @@ export async function signOutAction() {
 
 const repoUrl = (owner: string, repo: string) => `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
 
-/** Starts the workflow with the chosen tests, then opens the live board. */
+/** Starts the workflow with the chosen tests, then opens the live run. */
 export async function startRunAction(owner: string, name: string, form: FormData) {
   if (!isRepoName(owner) || !isRepoName(name)) redirect('/repos');
   const access = await requireAccess();
