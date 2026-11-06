@@ -3,6 +3,8 @@
 import '@xyflow/react/dist/style.css';
 import {
   Background,
+  BackgroundVariant,
+  ControlButton,
   Controls,
   Handle,
   MarkerType,
@@ -19,21 +21,23 @@ import type { LoadedReport, ReportTest } from '@/lib/report-client';
 import { STEPS } from '@/lib/steps';
 import type { Progress, RunStep } from '@/lib/types';
 
-// The run as a flow diagram (React Flow, MIT). Each page, endpoint and function gets its own lane,
-// left to right through the six stages: found → planned or skipped → test file → result → screenshot and report.
-// A stage's box appears when it starts. With workflow v3 the run shares a names-only progress file after
+// The run as one chain (React Flow, MIT), like the hero demo: each stage is a box in the line; it fans out to
+// what it found or made, and those join into the next stage.
+//   Collect → files → Analyze → pages, endpoints, functions → Plan → Test it · N / Skipped · N
+//   → Make tests → test files → Run → Passed · N / each possible bug or broken test → Results → screenshots and report
+// Boxes that are alike are grouped; every problem gets its own box. A stage's box appears when it starts. With workflow v3 the run shares a names-only progress file after
 // Analyze, Plan and Generate, so the lanes grow out while it runs; the results follow with the report.
 // Older workflows share nothing, so there the lanes all grow out once the report arrives.
 // When the run is over, the first possible bug is lit up.
 
 const STAGES = [
   { id: 'collect', name: 'Collect', text: 'GitHub copies your repo onto a fresh, temporary machine and installs Node 22. Repeval never receives your code.' },
-  { id: 'understand', name: 'Understand', text: 'Reads your code to find every page, API endpoint and exported function, and how to start the app.' },
+  { id: 'understand', name: 'Analyze', stage: 'Understand', text: 'Reads your code to find every page, API endpoint and exported function, and how to start the app.' },
   { id: 'plan', name: 'Plan', text: "Decides what to test. Anything it can't test yet is skipped with the reason, never silently dropped." },
   { id: 'make', name: 'Make tests', text: 'Writes real test files: Vitest for your functions, Playwright for your pages and API.' },
   { id: 'run', name: 'Run', text: 'Runs the unit tests, then starts your app and opens every page in a real browser.' },
   { id: 'results', name: 'Results', text: 'Saves the report and screenshots in your repo for 7 days. The machine is then deleted.' },
-].map((st) => ({ ...st, steps: STEPS.filter((s) => s.stage === st.name) }));
+].map((st) => ({ ...st, steps: STEPS.filter((s) => s.stage === ('stage' in st ? st.stage : st.name)) }));
 type StageId = (typeof STAGES)[number]['id'];
 type StageStatus = 'waiting' | 'running' | 'passed' | 'bug' | 'skipped';
 
@@ -197,8 +201,11 @@ function modelOf(progress: Progress | null, report: LoadedReport | null): Model 
   if (testsKnown) done.make = plural(testFiles.length, 'test file');
   const summary = report?.results.summary;
   if (summary && report) {
-    const bugs = summary['possible-bug'];
-    done.run = [`${summary.passed} passed`, bugs && plural(bugs, 'possible bug'), summary.broken && plural(summary.broken, 'broken test')].filter(Boolean).join(' · ');
+    // Counted like the Run stage's boxes: pages, endpoints and functions, not individual tests.
+    const ok = lanes.filter((l) => l.result === 'passed').length;
+    const bad = lanes.filter((l) => l.result === 'bug').length;
+    const broken = lanes.filter((l) => l.result === 'broken').length;
+    done.run = [`${ok} passed`, bad && plural(bad, 'possible bug'), broken && plural(broken, 'broken test')].filter(Boolean).join(' · ');
     done.results = `${plural(report.screenshotCount, 'screenshot')}, 1 report`;
   }
   return {
@@ -238,17 +245,21 @@ const progress = (id: StageId, t: number) => {
 };
 const shown = (f: number, i: number, n: number) => f >= 1 || (f >= 0 && i < Math.ceil(f * n));
 
-/* ---------- layout: one column per stage, one row per lane ---------- */
 
-const COL = 236;
-const W = 200;
-const ROW = 60;
-const HEAD_H = 76;
-const LIMIT = 6;
+/* ---------- layout: the chain ---------- */
+
+const SW = 210; // stage box
+const SH = 72;
+const IW = 220; // a fan's boxes
+const IH = 50;
+const GAP = 60; // their spacing
+const PITCH = 700; // from one stage to the next
+const stageX = (i: number) => i * PITCH;
+const fanX = (i: number) => stageX(i) + SW + 150;
+const LIMIT = 12; // a longer fan folds behind "+N more"
 
 type ND = {
-  kind?: string;
-  state?: string;
+  look?: string;
   title?: string;
   sub?: string;
   noteTitle?: string;
@@ -256,231 +267,166 @@ type ND = {
   status?: StageStatus;
   name?: string;
   text?: string;
-  label?: string;
-  group?: Group;
   src?: string | null;
-  route?: string;
   dim?: boolean;
   sel?: boolean;
 };
 type FNode = Node<ND>;
-type FEdge = Edge<{ state: string }>;
+type FEdge = Edge<{ tone: string; lanes: string[] }>;
 
 interface Built {
   nodes: FNode[];
   edges: FEdge[];
   lanesOf: Record<string, Set<string>>;
-  latestCol: number;
+  latest: number;
+  firstBug: string | null;
 }
 
-function build(model: Model | null, steps: RunStep[], done: boolean, t: number, expanded: Partial<Record<Group, boolean>>): Built {
+// What a stage found or made: [id, title, sub, look, lanes, note, screenshot]
+type Item = [string, string, string, string, string[], string, (string | null)?];
+
+function build(model: Model | null, steps: RunStep[], done: boolean, t: number, expanded: boolean): Built {
   const nodes: FNode[] = [];
   const edges: FEdge[] = [];
   const lanesOf: Record<string, Set<string>> = {};
-  const member = (id: string, lane: string) => (lanesOf[id] ??= new Set()).add(lane);
-  const node = (id: string, type: string, col: number, y: number, data: ND) =>
-    nodes.push({ id, type, position: { x: col * COL, y }, data, draggable: false, connectable: false, selectable: type !== 'glabel' });
-  const link = (id: string, source: string, target: string, state: string, extra?: Partial<FEdge>) =>
-    edges.push({ id, source, target, type: 'smoothstep', data: { state }, ...extra });
-
-  // Stage boxes along the top, each appearing when its stage starts.
-  let latestCol = 0;
-  STAGES.forEach((st, c) => {
-    const status = stageStatus(st, steps, done);
-    if (status === 'waiting') return;
-    latestCol = c;
+  const status = STAGES.map((st) => stageStatus(st, steps, done));
+  let latest = 0;
+  STAGES.forEach((st, i) => {
+    if (status[i] === 'waiting') return;
+    latest = i;
     const running = st.steps.find((s) => steps.find((x) => x.key === s.key)?.state === 'running');
-    const text = status === 'running' ? (running?.doing ?? 'starting') : status === 'skipped' ? 'skipped' : (model?.done[st.id] ?? 'done');
-    node('h:' + st.id, 'head', c, 0, { name: st.name, status, text, info: st.text });
-    if (c) link(`h:${STAGES[c - 1].id}>${st.id}`, 'h:' + STAGES[c - 1].id, 'h:' + st.id, 'done', { sourceHandle: 'r', targetHandle: 'l' });
+    const text = status[i] === 'running' ? (running?.doing ?? 'starting') : status[i] === 'skipped' ? 'skipped' : (model?.done[st.id] ?? 'done');
+    nodes.push({ id: 'h:' + st.id, type: 'stage', position: { x: stageX(i), y: -SH / 2 }, data: { name: st.name, status: status[i], text, info: st.text }, draggable: false, connectable: false });
   });
-  if (!model) return { nodes, edges, lanesOf, latestCol };
+  if (!model) return { nodes, edges, lanesOf, latest, firstBug: null };
 
   const F = Object.fromEntries(STAGES.map((st) => [st.id, progress(st.id, t)])) as Record<StageId, number>;
-  const { lanes: all } = model;
-  const idx = new Map(all.map((l, i) => [l.id, i]));
-  const found = (l: Lane) => shown(F.understand, idx.get(l.id)!, all.length);
+  const { lanes } = model;
+  const idx = new Map(lanes.map((l, i) => [l.id, i]));
+  const at = (f: number, l: Lane) => shown(f, idx.get(l.id)!, lanes.length);
+  const ids = (ls: Lane[]) => ls.map((l) => l.id);
+  const fans: Item[][] = [[], [], [], [], [], []];
 
-  // Rows only for lanes found so far, grouped by kind. Long groups fold behind "+N more".
-  let y = HEAD_H;
-  const rows: Record<string, number> = {};
-  const lanes: Lane[] = [];
-  let loadRow: number | null = null;
-  (['Pages', 'API', 'Code'] as Group[]).forEach((g) => {
-    const inGroup = all.filter((l) => l.group === g);
-    const list = inGroup.filter(found);
-    if (!list.length) return;
-    const keep = list.length > LIMIT && !expanded[g] ? list.slice(0, LIMIT - 1) : list;
-    node('g:' + g, 'glabel', 1, y, { label: `${g === 'Code' ? 'Functions' : g} · ${list.length}` });
-    y += 30;
-    keep.forEach((l) => {
-      rows[l.id] = y;
-      lanes.push(l);
-      y += ROW;
-    });
-    if (keep.length < list.length) {
-      node('more:' + g, 'more', 1, y, { group: g, label: `＋${list.length - keep.length} more` });
-      y += ROW;
-    }
-    if (g === 'API' && model.load && list.length === inGroup.length) {
-      loadRow = y;
-      y += ROW;
-    }
-    y += 18;
+  model.files.forEach((f, i) => {
+    if (shown(F.collect, i, model.files.length))
+      fans[0].push(['file:' + f, f, f === 'your app' ? 'source files' : 'source file', 'file', ids(lanes.filter((l) => l.source === f)), 'Read from your repo on the GitHub machine, where its pages, endpoints and functions were found.']);
   });
-  const mid = (ids: string[]) => {
-    const ys = ids.map((id) => rows[id]).filter((n) => n !== undefined);
-    return ys.length ? (Math.min(...ys) + Math.max(...ys)) / 2 : null;
-  };
-  // Shared boxes sit level with the lanes they serve, nudged apart so they never overlap.
-  const spread = (want: { id: string; y: number }[]) => {
-    want.sort((a, b) => a.y - b.y);
-    let floor = -Infinity;
-    return want.map((w) => {
-      const at = Math.max(w.y, floor);
-      floor = at + ROW;
-      return { ...w, y: at };
-    });
-  };
+  const found = lanes.filter((l) => at(F.understand, l));
+  const keep = found.length > LIMIT && !expanded ? found.slice(0, LIMIT - 1) : found;
+  keep.forEach((l) => fans[1].push(['found:' + l.id, l.label, l.kind, 'found', [l.id], `Found in ${l.source}.`]));
+  if (keep.length < found.length) fans[1].push(['more', `＋${found.length - keep.length} more`, 'tap to show them all', 'more', ids(found.slice(keep.length)), '']);
 
-  // Source files hang off the Collect box. Until their lanes are found they wait below.
-  let spare = Math.max(y, HEAD_H + 12);
-  const fileWant = model.files.flatMap((f, i) => {
-    if (!shown(F.collect, i, model.files.length)) return [];
-    const ys = mid(lanes.filter((l) => l.source === f).map((l) => l.id));
-    if (ys === null && F.understand >= 0) return []; // all of its lanes are folded away
-    const at = ys ?? spare;
-    if (ys === null) spare += ROW;
-    return [{ id: f, y: at }];
-  });
-  for (const { id: f, y: fy } of spread(fileWant)) {
-    node('file:' + f, 'item', 0, fy, { title: f, sub: f === 'your app' ? 'source files' : 'source file', state: 'found', kind: 'file', info: `Read from your repo on the GitHub machine.` });
-    link(`e:collect>${f}`, 'h:collect', 'file:' + f, 'done', { sourceHandle: 'tree', type: 'step' });
+  const planned = lanes.filter((l) => at(F.plan, l));
+  const toTest = planned.filter((l) => !l.skip);
+  const skipped = planned.filter((l) => l.skip);
+  const loads = model.load && F.plan >= 1 ? model.load : null;
+  if (toTest.length) {
+    const fw = [...new Set(toTest.map((l) => l.framework))].join(' and ');
+    fans[2].push(['plan:test', `Test it · ${toTest.length}`, fw, 'passed', ids(toTest), `Planned: Repeval can test these ${toTest.length} without AI, with ${fw}.`]);
   }
-
-  // Test files, centred on the lanes they cover.
-  const testWant = model.tests.flatMap((tf, i) => {
-    const ys = mid(lanes.filter((l) => l.test === tf).map((l) => l.id));
-    return ys !== null && shown(F.make, i, model.tests.length) ? [{ id: tf, y: ys }] : [];
-  });
-  for (const { id: tf, y: ty } of spread(testWant)) {
-    const n = all.filter((l) => l.test === tf).length;
+  if (skipped.length || loads) {
+    const n = skipped.length + (loads ? Number(loads.label.split(' ')[0]) || 1 : 0);
+    const why = skipped.map((l) => `${l.label}: ${l.skip}`).concat(loads ? [`${loads.label}: ${loads.sub}`] : []);
+    fans[2].push(['plan:skip', `Skipped · ${n}`, 'with the reason for each', 'skip', ids(skipped).concat(loads ? loads.from : []), why.join('. ') + '.']);
+  }
+  model.tests.forEach((tf, i) => {
+    if (!shown(F.make, i, model.tests.length)) return;
+    const covered = lanes.filter((l) => l.test === tf);
     const pw = tf.endsWith('.spec.ts');
-    node('test:' + tf, 'item', 3, ty, {
-      title: tf,
-      sub: plural(n, 'test'),
-      state: 'passed',
-      kind: 'test',
-      info: pw ? 'Playwright: opens each page or calls each endpoint in a real browser and checks it works.' : 'Vitest: loads the file and checks its exports.',
-    });
-  }
-
-  lanes.forEach((l) => {
-    const i = idx.get(l.id)!;
-    ['found:', 'plan:', 'result:', 'shot:'].forEach((p) => member(p + l.id, l.id));
-    member('file:' + l.source, l.id);
-    const ry = rows[l.id];
-    node('found:' + l.id, 'item', 1, ry, { title: l.label, sub: l.kind, state: 'found', kind: 'found', info: `Found in ${l.source}.` });
-    link(`e:file>${l.id}`, 'file:' + l.source, 'found:' + l.id, 'done');
-    if (!shown(F.plan, i, all.length)) return;
-    if (l.skip) {
-      node('plan:' + l.id, 'item', 2, ry, { title: 'Skipped', noteTitle: `${l.label}: skipped`, sub: l.skip, state: 'skip', kind: 'plan', info: l.skipInfo });
-      link(`e:found>plan:${l.id}`, 'found:' + l.id, 'plan:' + l.id, 'skip');
-      return;
-    }
-    if (l.test) member('test:' + l.test, l.id);
-    member('report', l.id);
-    node('plan:' + l.id, 'item', 2, ry, { title: 'Test it', noteTitle: `${l.label}: planned`, sub: l.framework, state: 'passed', kind: 'plan', info: 'Planned: Repeval can test this without AI.' });
-    link(`e:found>plan:${l.id}`, 'found:' + l.id, 'plan:' + l.id, 'done');
-    if (l.test) link(`e:plan>test:${l.id}`, 'plan:' + l.id, 'test:' + l.test, 'done');
-    if (!l.result || !shown(F.run, i, all.length)) return;
-    const r = l.result;
-    const line = r === 'bug' ? 'bug' : 'done';
-    const title = r === 'bug' ? 'Possible bug' : r === 'broken' ? 'Broken test' : 'Passed';
-    node('result:' + l.id, 'item', 4, ry, { title, noteTitle: `${l.label}: ${title.toLowerCase()}`, sub: l.resultText, state: r === 'broken' ? 'running' : r, kind: 'result', info: l.resultInfo });
-    link(`e:test>result:${l.id}`, 'test:' + l.test, 'result:' + l.id, line);
-    if (l.shot && F.results >= 0) {
-      node('shot:' + l.id, 'shot', 5, ry, { src: l.shot, route: l.label, state: r, info: `Screenshots of ${l.label} at desktop and phone width.` });
-      link(`e:result>shot:${l.id}`, 'result:' + l.id, 'shot:' + l.id, line);
-    }
+    fans[3].push(['test:' + tf, tf, `${plural(covered.length, 'test')} · ${pw ? 'Playwright' : 'Vitest'}`, 'test passed', ids(covered),
+      pw ? 'Playwright: opens each page or calls each endpoint and checks it works.' : 'Vitest: loads the file and checks its exports.']);
   });
+  const results = lanes.filter((l) => l.result && at(F.run, l));
+  const passed = results.filter((l) => l.result === 'passed');
+  if (passed.length) fans[4].push(['res:pass', `Passed · ${passed.length}`, 'no errors', 'passed', ids(passed), passed.map((l) => `${l.label}: ${l.resultText}`).join('. ') + '.']);
+  results
+    .filter((l) => l.result !== 'passed')
+    .forEach((l) => fans[4].push(['res:' + l.id, l.result === 'bug' ? 'Possible bug' : 'Broken test', `${l.label}: ${l.resultText}`, l.result === 'bug' ? 'bug' : 'broken', [l.id], l.resultInfo ?? '']));
+  if (F.results >= 0) {
+    results.filter((l) => l.shot).forEach((l) => fans[5].push(['shot:' + l.id, l.label, '', l.result === 'bug' ? 'bug' : 'passed', [l.id], `Screenshots of ${l.label} at desktop and phone width.`, l.shot]));
+    if (F.results >= 1)
+      fans[5].push(['report', 'Report', model.done.run ?? '', model.hasBug ? 'bug' : 'passed', ids(lanes.filter((l) => !l.skip)), 'Every result, every screenshot and the test files to keep, saved in your repo for 7 days.']);
+  }
 
-  // Load tests: planned for endpoints, one box for all of them.
-  if (model.load && loadRow !== null && F.plan >= 1) {
-    node('plan:load', 'item', 2, loadRow, { title: model.load.label, sub: model.load.sub, state: 'skip', kind: 'plan', info: model.load.info });
-    model.load.from
-      .filter((id) => rows[id] !== undefined)
-      .forEach((id) => {
-        link(`e:load:${id}`, 'found:' + id, 'plan:load', 'skip');
-        member('plan:load', id);
+  fans.forEach((fan, i) => {
+    const top = -((fan.length - 1) * GAP) / 2 - IH / 2;
+    fan.forEach(([id, title, sub, look, ls, info, src], j) => {
+      lanesOf[id] = new Set(ls);
+      const lane = id.startsWith('res:') && id !== 'res:pass' ? lanes.find((l) => 'res:' + l.id === id) : null;
+      nodes.push({
+        id,
+        type: src !== undefined ? 'shot' : look === 'more' ? 'more' : 'item',
+        position: { x: fanX(i), y: top + j * GAP },
+        data: { title, sub, look, info, src, noteTitle: lane ? `${title} on ${lane.label}` : title },
+        draggable: false,
+        connectable: false,
       });
-  }
-
-  // The report, right under the screenshots.
-  if (F.results >= 1) {
-    const shotYs = lanes.filter((l) => l.shot).map((l) => rows[l.id]);
-    const ry = shotYs.length ? Math.max(...shotYs) + ROW : (mid(lanes.map((l) => l.id)) ?? HEAD_H);
-    node('report', 'item', 5, ry, { title: 'Report', sub: model.done.run, state: model.hasBug ? 'bug' : 'passed', kind: 'report', info: 'Every result, every screenshot and the test files to keep, saved in your repo for 7 days.' });
-  }
-  // A line is drawn only once both of its boxes are there.
-  const ids = new Set(nodes.map((n) => n.id));
-  return { nodes, edges: edges.filter((e) => ids.has(e.source) && ids.has(e.target)), lanesOf, latestCol };
+      const tone = look.includes('bug') ? 'bug' : look === 'skip' ? 'skip' : 'done';
+      if (status[i] !== 'waiting') edges.push({ id: `out:${id}`, source: 'h:' + STAGES[i].id, target: id, data: { tone, lanes: ls } });
+      if (STAGES[i + 1] && status[i + 1] !== 'waiting' && look !== 'skip' && look !== 'more')
+        edges.push({ id: `in:${id}`, source: id, target: 'h:' + STAGES[i + 1].id, data: { tone: tone === 'bug' ? 'bug' : 'done', lanes: ls } });
+    });
+  });
+  const firstBug = fans[4].find((f) => f[3] === 'bug') ?? fans[4].find((f) => f[3] === 'broken');
+  return { nodes, edges, lanesOf, latest, firstBug: firstBug ? firstBug[0] : null };
 }
 
 /* ---------- boxes ---------- */
 
 const sides = () => (
   <>
-    <Handle id="l" type="target" position={Position.Left} isConnectable={false} />
-    <Handle id="r" type="source" position={Position.Right} isConnectable={false} />
+    <Handle type="target" position={Position.Left} isConnectable={false} />
+    <Handle type="source" position={Position.Right} isConnectable={false} />
   </>
 );
+const cls = (base: string, d: ND) => `${base}${d.dim ? ' dim' : ''}${d.sel ? ' sel' : ''}`;
 const nodeTypes = {
-  head: ({ data }: NodeProps<FNode>) => (
-    <div className={`fh ${data.status}`} style={{ width: W }}>
+  stage: ({ data }: NodeProps<FNode>) => (
+    <div className={`cs ${data.status}`} style={{ width: SW, height: SH }}>
       {sides()}
-      <Handle id="tree" type="source" position={Position.Left} isConnectable={false} style={{ top: '78%' }} />
-      <span className="fh-name">
-        {data.name}
-      </span>
-      <span className="fh-text">
+      <b>{data.name}</b>
+      <span className="cs-text">
         <i aria-hidden="true" />
         {data.text}
       </span>
     </div>
   ),
-  glabel: ({ data }: NodeProps<FNode>) => <div className="fg">{data.label}</div>,
-  more: ({ data }: NodeProps<FNode>) => (
-    <button type="button" className="fm" style={{ width: W }}>
-      {sides()}
-      {data.label}
-    </button>
-  ),
   item: ({ data }: NodeProps<FNode>) => (
-    <div className={`fi ${data.kind} ${data.state}${data.dim ? ' dim' : ''}${data.sel ? ' sel' : ''}`} style={{ width: W }}>
+    <div className={cls(`ci ${data.look}`, data)} style={{ width: IW, height: IH }}>
       {sides()}
       <b>{data.title}</b>
       <span>{data.sub}</span>
     </div>
   ),
+  more: ({ data }: NodeProps<FNode>) => (
+    <button type="button" className="ci more" style={{ width: IW, height: IH }}>
+      {sides()}
+      <b>{data.title}</b>
+      <span>{data.sub}</span>
+    </button>
+  ),
   shot: ({ data }: NodeProps<FNode>) => (
-    <div className={`fs ${data.state}${data.dim ? ' dim' : ''}${data.sel ? ' sel' : ''}`} style={{ width: W }}>
+    <div className={cls(`cshot ${data.look}`, data)} style={{ width: IW, height: IH }}>
       {sides()}
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      {data.src && <img src={data.src} alt={`Screenshot of ${data.route}`} loading="lazy" />}
-      <span>{data.route}</span>
+      {data.src && <img src={data.src} alt="" />}
+      <span>{data.title}</span>
     </div>
   ),
 };
 
-const LINE: Record<string, string> = { done: '#2dd4bf', bug: '#ff6b5e', skip: '#56686a' };
+// Lines take the theme's own colours, so they change with light and dark.
+const LINE: Record<string, string> = { done: 'var(--ok)', bug: 'var(--bug)', skip: 'var(--muted)' };
 const NOTE = (
   <>
     <b>Tap a box</b> to follow that page, endpoint or function through the run. Drag to look around.
   </>
 );
+// Arrows pointing out (and in), so full screen doesn't look like React Flow's fit-view button.
+const ICON_FULL = 'M14 4h6v6M10 20H4v-6M20 4l-6 6M4 20l6-6';
+const ICON_EXIT = 'M4 14h6v6M20 10h-6V4M10 14l-6 6M14 10l6-6';
 
-// Tapping a box lights up the lanes it belongs to: one item's whole path, or every item a shared file feeds.
+// Tapping a box lights up everything it shares a lane with.
 function lit(id: string, lanesOf: Built['lanesOf']) {
   const want = lanesOf[id];
   if (!want) return null;
@@ -494,10 +440,10 @@ export interface RunFlowProps {
   id: string;
   steps: RunStep[];
   done: boolean;
-  report: LoadedReport | null;
   /** Names-only progress from workflow v3, while the run is going. */
   progress: Progress | null;
-  /** Grow the lanes out stage by stage as the data arrives, instead of showing them all at once. */
+  report: LoadedReport | null;
+  /** Grow the chain stage by stage as the data arrives, instead of showing it all at once. */
   reveal: boolean;
 }
 
@@ -507,9 +453,10 @@ export default function RunFlow({ id, steps, done, progress, report, reveal }: R
   const inst = useRef<ReactFlowInstance<FNode, FEdge> | null>(null);
   const [t, setT] = useState(reveal ? 0 : 1);
   const tRef = useRef(t);
-  const [expanded, setExpanded] = useState<Partial<Record<Group, boolean>>>({});
+  const [expanded, setExpanded] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [note, setNote] = useState<{ title: string; text: string } | null>(null);
+  const [full, setFull] = useState(false);
   const autoPicked = useRef(false);
   // React Flow takes each box's size from the node objects it is handed, and hides a box until it knows
   // its size. The diagram is rebuilt on every update, so the sizes it measured are kept here and handed
@@ -519,7 +466,7 @@ export default function RunFlow({ id, steps, done, progress, report, reveal }: R
     for (const c of changes) if (c.type === 'dimensions' && c.dimensions) sizes.current.set(c.id, c.dimensions);
   };
 
-  // Grow the lanes up to where the data reaches, at a steady pace: each new progress file or the report
+  // Grow the chain up to where the data reaches, at a steady pace: each new progress file or the report
   // moves the goal further, and the diagram catches up stage by stage.
   const goal = model?.level ?? 0;
   useEffect(() => {
@@ -541,19 +488,23 @@ export default function RunFlow({ id, steps, done, progress, report, reveal }: R
   }, [goal]);
 
   const g = useMemo(() => build(model, steps, done, Math.min(t, goal), expanded), [model, steps, done, t, goal, expanded]);
-  const latest = useRef(0);
-  latest.current = g.latestCol;
+  const finished = !!report && done && t >= 1;
+  const view = useRef({ latest: 0, finished: false });
+  view.current = { latest: g.latest, finished };
 
-  // The camera: the whole diagram on wide screens (never zoomed in past 100%), the newest stage on phones.
+  // The camera follows the newest stage and its fan, about three stages wide. When the run is over it rests
+  // on the end of the chain: the results, Results, and what it saved.
   const frame = (animate: boolean) => {
     const i = inst.current;
     const w = wrap.current?.clientWidth ?? 0;
+    const h = wrap.current?.clientHeight ?? 0;
     if (!i || !w) return;
-    const duration = animate && !matchMedia('(prefers-reduced-motion: reduce)').matches ? 450 : 0;
-    if (w < 700) {
-      const z = 0.62;
-      i.setViewport({ x: Math.min(10, w - (latest.current + 1) * COL * z), y: 10, zoom: z }, { duration });
-    } else i.fitView({ padding: 0.06, maxZoom: 1, duration });
+    const duration = animate && !matchMedia('(prefers-reduced-motion: reduce)').matches ? 600 : 0;
+    const z = Math.max(0.35, Math.min(0.85, h / 820, w / 1500));
+    const { latest, finished: end } = view.current;
+    const from = end ? stageX(4) : stageX(latest);
+    const to = end ? fanX(5) + IW : fanX(latest) + IW;
+    i.setViewport({ x: w / 2 - (z * (from + to)) / 2, y: h / 2, zoom: z }, { duration });
   };
   const frameRef = useRef(frame);
   frameRef.current = frame;
@@ -569,72 +520,67 @@ export default function RunFlow({ id, steps, done, progress, report, reveal }: R
       frameRef.current(false);
     });
     ro.observe(el);
-    return () => ro.disconnect();
+    const onFull = () => setFull(document.fullscreenElement === el);
+    document.addEventListener('fullscreenchange', onFull);
+    return () => {
+      ro.disconnect();
+      document.removeEventListener('fullscreenchange', onFull);
+    };
   }, []);
   useEffect(() => {
     const tm = setTimeout(() => frameRef.current(true), 60);
     return () => clearTimeout(tm);
-  }, [g.nodes.length, g.latestCol]);
+  }, [g.latest, finished]);
 
-  // When the run is over and every lane is in, light up the first possible bug (or broken test).
+  // When the run is over and the chain has grown, light up the first possible bug (or broken test).
   useEffect(() => {
-    if (!model || !report || !done || t < 1 || autoPicked.current) return;
+    if (!finished || !g.firstBug || autoPicked.current) return;
     autoPicked.current = true;
-    const first = model.lanes.find((l) => l.result === 'bug') ?? model.lanes.find((l) => l.result === 'broken');
-    if (!first) return;
-    const inGroup = model.lanes.filter((l) => l.group === first.group);
-    if (inGroup.length > LIMIT && inGroup.indexOf(first) >= LIMIT - 1) setExpanded((x) => ({ ...x, [first.group]: true }));
-    setSelected('result:' + first.id);
-    setNote({ title: `${first.label}: ${first.result === 'bug' ? 'possible bug' : 'broken test'}`, text: first.resultInfo ?? '' });
-  }, [model, report, done, t]);
-
-  // On phones, move the view to the lit-up result.
-  useEffect(() => {
-    if (!selected?.startsWith('result:')) return;
-    const tm = setTimeout(() => {
-      const i = inst.current;
-      const w = wrap.current?.clientWidth ?? 0;
-      const n = i?.getNode(selected);
-      if (!i || !n || w >= 700) return;
-      const duration = matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 450;
-      i.setCenter(n.position.x + W / 2, n.position.y + 23, { zoom: 0.62, duration });
-    }, 520);
-    return () => clearTimeout(tm);
-  }, [selected]);
+    const n = g.nodes.find((x) => x.id === g.firstBug);
+    setSelected(g.firstBug);
+    if (n) setNote({ title: n.data.noteTitle ?? '', text: n.data.info ?? '' });
+  }, [finished, g.firstBug, g.nodes]);
 
   const lane = selected ? lit(selected, g.lanesOf) : null;
+  const want = selected ? g.lanesOf[selected] : null;
   const nodes = g.nodes.map((n) => {
     const measured = sizes.current.get(n.id);
-    const data = lane && n.type !== 'head' && n.type !== 'glabel' ? { ...n.data, dim: !lane.has(n.id), sel: n.id === selected } : n.data;
+    const data = lane && n.type !== 'stage' ? { ...n.data, dim: !lane.has(n.id), sel: n.id === selected } : n.data;
     return { ...n, data, ...(measured ? { measured } : {}) };
   });
   const edges = g.edges.map((e) => {
-    const st = e.data!.state;
-    const off = !!lane && !e.id.startsWith('h:') && !(lane.has(e.source) && lane.has(e.target));
-    const color = LINE[st] ?? LINE.done;
+    const tone = e.data!.tone;
+    const color = LINE[tone] ?? LINE.done;
+    const off = !!want && !e.data!.lanes.some((l) => want.has(l));
     return {
       ...e,
+      type: 'default',
       focusable: false,
-      style: { stroke: color, strokeWidth: 1.6, strokeDasharray: st === 'skip' ? '4 4' : undefined, opacity: off ? 0.12 : 1, transition: 'stroke 300ms ease, opacity 200ms ease' },
+      style: { stroke: color, strokeWidth: 1.7, strokeDasharray: tone === 'skip' ? '5 5' : undefined, opacity: off ? 0.12 : 1, transition: 'opacity 200ms ease' },
       markerEnd: { type: MarkerType.ArrowClosed, color, width: 14, height: 14 },
     };
   });
 
   const choose = (n: FNode) => {
-    if (n.type === 'more') return setExpanded((x) => ({ ...x, [n.data.group!]: true }));
-    if (n.type === 'glabel') return;
-    if (n.type === 'head') {
+    if (n.type === 'more') return setExpanded(true);
+    if (n.type === 'stage') {
       setSelected(null);
       return setNote({ title: n.data.name ?? '', text: n.data.info ?? '' });
     }
     const same = selected === n.id;
     setSelected(same ? null : n.id);
-    setNote(same ? null : { title: n.data.noteTitle ?? n.data.title ?? n.data.route ?? '', text: n.data.info ?? '' });
+    setNote(same ? null : { title: n.data.noteTitle ?? '', text: n.data.info ?? '' });
+  };
+  const toggleFull = () => {
+    const el = wrap.current;
+    if (!el) return;
+    if (document.fullscreenElement === el) document.exitFullscreen();
+    else el.requestFullscreen().catch(() => undefined);
   };
 
   return (
     <div className="flow-wrap">
-      {/* Short while only the stages are known, full height once the lanes come in. */}
+      {/* Short while only the stages are known, full height once the chain grows. */}
       <div className={'flow' + (model ? '' : ' compact')} ref={wrap} data-ui aria-label="The run as a flow diagram">
         <ReactFlow<FNode, FEdge>
           id={id}
@@ -654,20 +600,27 @@ export default function RunFlow({ id, steps, done, progress, report, reveal }: R
           nodesDraggable={false}
           nodesConnectable={false}
           elementsSelectable
-          // Drag to look around, pinch or use the buttons to zoom; the mouse wheel keeps scrolling the page.
+          // Drag to look around; pinch or the buttons zoom. The mouse wheel keeps scrolling the page.
           panOnDrag
           zoomOnScroll={false}
           zoomOnPinch
           zoomOnDoubleClick={false}
           panOnScroll={false}
           preventScrolling={false}
-          minZoom={0.25}
+          minZoom={0.15}
           maxZoom={1.5}
-          colorMode="dark"
           attributionPosition="bottom-left"
         >
-          <Background gap={18} size={1.2} color="#1f2a2d" />
-          <Controls showInteractive={false} position="bottom-right" />
+          <Background variant={BackgroundVariant.Dots} gap={20} size={1.6} />
+          <Controls showInteractive={false} position="bottom-right" fitViewOptions={{ padding: 0.08, duration: 400 }}>
+            {typeof document !== 'undefined' && document.fullscreenEnabled && (
+              <ControlButton onClick={toggleFull} title={full ? 'Exit full screen' : 'Full screen'} aria-label={full ? 'Exit full screen' : 'Full screen'}>
+                <svg viewBox="0 0 24 24" className="cs-icon" aria-hidden="true">
+                  <path d={full ? ICON_EXIT : ICON_FULL} />
+                </svg>
+              </ControlButton>
+            )}
+          </Controls>
         </ReactFlow>
       </div>
       <p className="flow-note" aria-live="polite">
