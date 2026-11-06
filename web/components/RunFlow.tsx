@@ -27,12 +27,12 @@ import type { Progress, RunStep } from '@/lib/types';
 // When the run is over, the first possible bug is lit up.
 
 const STAGES = [
-  { id: 'collect', no: '①', name: 'Collect', text: 'GitHub copies your repo onto a fresh, temporary machine and installs Node 22. Repeval never receives your code.' },
-  { id: 'understand', no: '②', name: 'Understand', text: 'Reads your code to find every page, API endpoint and exported function, and how to start the app.' },
-  { id: 'plan', no: '③', name: 'Plan', text: "Decides what to test. Anything it can't test yet is skipped with the reason, never silently dropped." },
-  { id: 'make', no: '④', name: 'Make tests', text: 'Writes real test files: Vitest for your functions, Playwright for your pages and API.' },
-  { id: 'run', no: '⑤', name: 'Run', text: 'Runs the unit tests, then starts your app and opens every page in a real browser.' },
-  { id: 'results', no: '⑥', name: 'Results', text: 'Saves the report and screenshots in your repo for 7 days. The machine is then deleted.' },
+  { id: 'collect', name: 'Collect', text: 'GitHub copies your repo onto a fresh, temporary machine and installs Node 22. Repeval never receives your code.' },
+  { id: 'understand', name: 'Understand', text: 'Reads your code to find every page, API endpoint and exported function, and how to start the app.' },
+  { id: 'plan', name: 'Plan', text: "Decides what to test. Anything it can't test yet is skipped with the reason, never silently dropped." },
+  { id: 'make', name: 'Make tests', text: 'Writes real test files: Vitest for your functions, Playwright for your pages and API.' },
+  { id: 'run', name: 'Run', text: 'Runs the unit tests, then starts your app and opens every page in a real browser.' },
+  { id: 'results', name: 'Results', text: 'Saves the report and screenshots in your repo for 7 days. The machine is then deleted.' },
 ].map((st) => ({ ...st, steps: STEPS.filter((s) => s.stage === st.name) }));
 type StageId = (typeof STAGES)[number]['id'];
 type StageStatus = 'waiting' | 'running' | 'passed' | 'bug' | 'skipped';
@@ -254,7 +254,6 @@ type ND = {
   noteTitle?: string;
   info?: string;
   status?: StageStatus;
-  no?: string;
   name?: string;
   text?: string;
   label?: string;
@@ -292,7 +291,7 @@ function build(model: Model | null, steps: RunStep[], done: boolean, t: number, 
     latestCol = c;
     const running = st.steps.find((s) => steps.find((x) => x.key === s.key)?.state === 'running');
     const text = status === 'running' ? (running?.doing ?? 'starting') : status === 'skipped' ? 'skipped' : (model?.done[st.id] ?? 'done');
-    node('h:' + st.id, 'head', c, 0, { no: st.no, name: st.name, status, text, info: st.text });
+    node('h:' + st.id, 'head', c, 0, { name: st.name, status, text, info: st.text });
     if (c) link(`h:${STAGES[c - 1].id}>${st.id}`, 'h:' + STAGES[c - 1].id, 'h:' + st.id, 'done', { sourceHandle: 'r', targetHandle: 'l' });
   });
   if (!model) return { nodes, edges, lanesOf, latestCol };
@@ -344,7 +343,7 @@ function build(model: Model | null, steps: RunStep[], done: boolean, t: number, 
     });
   };
 
-  // ① source files hang off the Collect box. Until their lanes are found they wait below.
+  // Source files hang off the Collect box. Until their lanes are found they wait below.
   let spare = Math.max(y, HEAD_H + 12);
   const fileWant = model.files.flatMap((f, i) => {
     if (!shown(F.collect, i, model.files.length)) return [];
@@ -359,7 +358,7 @@ function build(model: Model | null, steps: RunStep[], done: boolean, t: number, 
     link(`e:collect>${f}`, 'h:collect', 'file:' + f, 'done', { sourceHandle: 'tree', type: 'step' });
   }
 
-  // ④ test files, centred on the lanes they cover.
+  // Test files, centred on the lanes they cover.
   const testWant = model.tests.flatMap((tf, i) => {
     const ys = mid(lanes.filter((l) => l.test === tf).map((l) => l.id));
     return ys !== null && shown(F.make, i, model.tests.length) ? [{ id: tf, y: ys }] : [];
@@ -417,7 +416,7 @@ function build(model: Model | null, steps: RunStep[], done: boolean, t: number, 
       });
   }
 
-  // ⑥ the report, right under the screenshots.
+  // The report, right under the screenshots.
   if (F.results >= 1) {
     const shotYs = lanes.filter((l) => l.shot).map((l) => rows[l.id]);
     const ry = shotYs.length ? Math.max(...shotYs) + ROW : (mid(lanes.map((l) => l.id)) ?? HEAD_H);
@@ -441,8 +440,8 @@ const nodeTypes = {
     <div className={`fh ${data.status}`} style={{ width: W }}>
       {sides()}
       <Handle id="tree" type="source" position={Position.Left} isConnectable={false} style={{ top: '78%' }} />
-      <span className="fh-no">
-        {data.no} {data.name}
+      <span className="fh-name">
+        {data.name}
       </span>
       <span className="fh-text">
         <i aria-hidden="true" />
@@ -626,7 +625,7 @@ export default function RunFlow({ id, steps, done, progress, report, reveal }: R
     if (n.type === 'glabel') return;
     if (n.type === 'head') {
       setSelected(null);
-      return setNote({ title: `${n.data.no} ${n.data.name}`, text: n.data.info ?? '' });
+      return setNote({ title: n.data.name ?? '', text: n.data.info ?? '' });
     }
     const same = selected === n.id;
     setSelected(same ? null : n.id);

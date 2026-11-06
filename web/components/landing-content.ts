@@ -45,20 +45,20 @@ export const WORKFLOW_SNIPPET = `<span class="cm"># .github/workflows/repeval.ym
 /** The terminal transcript of a real demo-shop run. The Terminal component types it out line by line. */
 export const TERMINAL = `<span class="p">$</span> npx repeval run
 
-<span class="y">① Collect files</span>
+<span class="y">Collect files</span>
   Scanned     3 source files, 0 existing tests
-<span class="y">② Understand the repo</span>
+<span class="y">Understand the repo</span>
   Stack       javascript, Express
   Pages       /  /about  /cart  /help.html  /products/:id
   Start       npm run start  (port 4310)
-<span class="y">③ Plan</span>
+<span class="y">Plan</span>
   Targets     9 of 13: 3 unit, 4 pages, 2 API
-<span class="y">④ Make tests</span>
+<span class="y">Make tests</span>
   Wrote       4 test files in .repeval/
-<span class="y">⑤ Run</span>
+<span class="y">Run</span>
   Running unit tests with Vitest       <span class="g">✓ 5 passed</span>
   Running E2E tests with Playwright    <span class="g">✓ 5 passed</span>  <span class="r">× 1 failed</span>
-<span class="y">⑥ Results</span>
+<span class="y">Results</span>
   <span class="g">10 passed</span>  <span class="r">1 possible bug</span>  0 broken tests  <span class="d">4 skipped</span>
   <span class="r">×</span> page /cart loads <span class="d">· browser errors on this page: cartTotal is not defined</span>
   Report: repeval-report/index.html`;
