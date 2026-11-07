@@ -23,7 +23,7 @@ import type { Progress, RunStep } from '@/lib/types';
 
 // The run as one chain (React Flow, MIT), like the hero demo: each stage is a box in the line; it fans out to
 // what it found or made, and those join into the next stage.
-//   Collect → files → Analyze → pages, endpoints, functions → Plan → Test it · N / Skipped · N
+//   Sandbox → files → Analyze → pages, endpoints, functions → Plan → Test it · N / Skipped · N
 //   → Make tests → test files → Run → Passed · N / each possible bug or broken test → Results → screenshots and report
 // Boxes that are alike are grouped; every problem gets its own box. A stage's box appears when it starts. With workflow v3 the run shares a names-only progress file after
 // Analyze, Plan and Generate, so the lanes grow out while it runs; the results follow with the report.
@@ -31,7 +31,7 @@ import type { Progress, RunStep } from '@/lib/types';
 // When the run is over, the first possible bug is lit up.
 
 const STAGES = [
-  { id: 'collect', name: 'Collect', text: 'GitHub copies your repo onto a fresh, temporary machine and installs Node 22. Repeval never receives your code.' },
+  { id: 'sandbox', name: 'Sandbox', text: 'A fresh, temporary GitHub machine. Your code is copied here, never to Repeval, and the machine is deleted after the run.' },
   { id: 'understand', name: 'Analyze', stage: 'Understand', text: 'Reads your code to find every page, API endpoint and exported function, and how to start the app.' },
   { id: 'plan', name: 'Plan', text: "Decides what to test. Anything it can't test yet is skipped with the reason, never silently dropped." },
   { id: 'make', name: 'Make tests', text: 'Writes real test files: Vitest for your functions, Playwright for your pages and API.' },
@@ -194,7 +194,7 @@ function modelOf(progress: Progress | null, report: LoadedReport | null): Model 
   const planKnown = !!report || !!progress?.plan;
   const testsKnown = !!report || !!progress?.tests;
   const done: Model['done'] = {
-    collect: plural(files.length, 'source file'),
+    sandbox: 'ready',
     understand: found.length ? found.join(', ') : 'nothing to test found',
   };
   if (planKnown) done.plan = `${lanes.filter((l) => !l.skip).length} of ${lanes.length + loads.length} to test`;
@@ -232,7 +232,7 @@ function stageStatus(st: (typeof STAGES)[number], steps: RunStep[], done: boolea
 // After the run, the lanes grow out one stage after another over REVEAL_MS. Each stage gets a slice.
 const REVEAL_MS = 4200;
 const SLICES: Record<StageId, [number, number]> = {
-  collect: [0, 0.1],
+  sandbox: [0, 0.1],
   understand: [0.1, 0.3],
   plan: [0.3, 0.45],
   make: [0.45, 0.58],
@@ -308,7 +308,7 @@ function build(model: Model | null, steps: RunStep[], done: boolean, t: number, 
   const fans: Item[][] = [[], [], [], [], [], []];
 
   model.files.forEach((f, i) => {
-    if (shown(F.collect, i, model.files.length))
+    if (shown(F.sandbox, i, model.files.length))
       fans[0].push(['file:' + f, f, f === 'your app' ? 'source files' : 'source file', 'file', ids(lanes.filter((l) => l.source === f)), 'Read from your repo on the GitHub machine, where its pages, endpoints and functions were found.']);
   });
   const found = lanes.filter((l) => at(F.understand, l));
