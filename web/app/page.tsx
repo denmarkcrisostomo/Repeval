@@ -63,16 +63,16 @@ export default async function Home() {
           </div>
           <ol className="steps-list">
             <li>
-              <b>Collect</b>
-              <p>GitHub copies your repo onto a temporary machine. Repeval itself never receives your code.</p>
-              <p className="see">
-                Skips <code>node_modules</code>, build output and binaries.
-              </p>
+              <b>Sandbox</b>
+              <p>GitHub sets up a fresh, temporary machine and copies your repo there. Repeval itself never receives your code.</p>
+              <p className="see">The machine is deleted when the run ends.</p>
             </li>
             <li>
-              <b>Understand</b>
-              <p>Reads your stack, every exported function, every page and API endpoint, and how to start the app.</p>
-              <p className="see">Next.js, Vite, Express, NestJS, Fastify, Hono, SvelteKit, Remix, React Router.</p>
+              <b>Analyze</b>
+              <p>Reads your files for your stack, every exported function, every page and API endpoint, and how to start the app.</p>
+              <p className="see">
+                Next.js, Vite, Express, NestJS, Fastify, Hono, SvelteKit, Remix, React Router. Skips <code>node_modules</code>, build output and binaries.
+              </p>
             </li>
             <li>
               <b>Plan</b>
