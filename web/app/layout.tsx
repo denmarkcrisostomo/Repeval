@@ -1,13 +1,22 @@
 import type { Metadata, Viewport } from 'next';
-import { Archivo, JetBrains_Mono } from 'next/font/google';
+import localFont from 'next/font/local';
 import Script from 'next/script';
 import { DEMO } from '@/auth';
 import { Sprite } from '@/components/Sprite';
 import { THEME_SCRIPT } from '@/components/ThemeSwitch';
 import './globals.css';
 
-const archivo = Archivo({ subsets: ['latin'], axes: ['wdth'], variable: '--font-archivo', display: 'swap' });
-const mono = JetBrains_Mono({ subsets: ['latin'], weight: ['400', '500'], variable: '--font-jetbrains', display: 'swap' });
+// The fonts live in app/fonts (SIL Open Font License, see OFL.txt there), so dev and build never fetch from Google.
+// Both are variable fonts, Latin only: Archivo with its weight and width axes, JetBrains Mono with its weights.
+const archivo = localFont({
+  src: './fonts/archivo-latin.woff2',
+  weight: '100 900',
+  style: 'normal',
+  declarations: [{ prop: 'font-stretch', value: '62% 125%' }],
+  variable: '--font-archivo',
+  display: 'swap',
+});
+const mono = localFont({ src: './fonts/jetbrains-mono-latin.woff2', weight: '100 800', style: 'normal', variable: '--font-jetbrains', display: 'swap' });
 
 export const metadata: Metadata = {
   title: { default: 'Repeval: tests for code you never tested', template: '%s · Repeval' },
