@@ -22,7 +22,7 @@ export function LiveRun({ owner, repo, initial, pollMs }: { owner: string; repo:
   const [reportError, setReportError] = useState<string | null>(null);
   const base = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
   const done = run.phase === 'done';
-  // Watched live: the flow's lanes grow out when the report arrives. Opened later: they're all there at once.
+  // Watched live: the flow's boxes are added one by one as the data arrives. Opened later: they're all there at once.
   const reveal = useRef(initial.phase !== 'done').current;
 
   // Poll until the run is done. Stops for good on sign-out or a missing run.
@@ -75,6 +75,10 @@ export function LiveRun({ owner, repo, initial, pollMs }: { owner: string; repo:
 
   // Until the browser's clock takes over, use GitHub's last update time so server and browser render the same.
   const elapsed = run.startedAt ? ((done || now === null ? Date.parse(run.updatedAt) : now) - Date.parse(run.startedAt)) / 1000 : 0;
+  // How long GitHub has been finding a machine, for the flow's Sandbox box.
+  const waited = run.phase === 'queued' ? ((now ?? Date.parse(run.updatedAt)) - Date.parse(run.createdAt)) / 1000 : 0;
+  // Nothing more will arrive: the report is here, failed to load, or was never saved.
+  const final = done && (!!report || !!reportError || !run.hasReport);
   const current = STEPS.find((s) => run.steps.find((x) => x.key === s.key)?.state === 'running');
   const finished = run.steps.filter((s) => s.state !== 'waiting' && s.state !== 'running').length;
   const summary = report?.results.summary;
@@ -143,7 +147,7 @@ export function LiveRun({ owner, repo, initial, pollMs }: { owner: string; repo:
               need Repeval 0.1.4 or later and workflow v3.
             </p>
           )}
-          <RunFlow id="flow-live" steps={run.steps} done={done} progress={progress} report={report} reveal={reveal} />
+          <RunFlow id="flow-live" steps={run.steps} done={done} phase={run.phase} waited={waited} final={final} progress={progress} report={report} reveal={reveal} />
           <div className={'result-bar' + (done ? ' show' : '')} aria-live="polite">
             {summary ? (
               <>

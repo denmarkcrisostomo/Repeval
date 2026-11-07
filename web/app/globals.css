@@ -518,8 +518,7 @@ footer.site { padding-block: 96px 40px; }
 /* ---------- Run view: the run as one chain (components/RunFlow.tsx), like the hero demo: no card, React Flow's dots on the page background,
    colours from the light or dark theme, and every side fading into the page. */
 .flow-wrap { display: grid; gap: 10px; }
-.flow { position: relative; height: 760px; transition: height 450ms var(--ease-out); }
-.flow.compact { height: 240px; }
+.flow { position: relative; height: 760px; }
 .flow-hint { margin: 0 0 12px; }
 .flow .react-flow { --xy-background-color: transparent; --xy-background-pattern-color: color-mix(in srgb, var(--ink) 22%, transparent); background: transparent; }
 .flow .react-flow__renderer, .flow .react-flow__background {
@@ -547,6 +546,13 @@ footer.site { padding-block: 96px 40px; }
 .cs.passed .cs-text { color: var(--ok); }
 .cs.bug { border-color: var(--bug); }
 .cs.bug .cs-text { color: var(--bug); }
+/* Done, but its boxes have not arrived yet: neutral, so a possible bug never shows before its boxes. */
+.cs.fetch .cs-text i { animation: fn-pulse 1s ease-in-out infinite; }
+/* Sandbox while GitHub finds a machine: dashed, with a spinner and a clock. */
+.cs.queued { border-style: dashed; border-color: var(--run); }
+.cs.queued .cs-text { color: var(--run); font-variant-numeric: tabular-nums; }
+.cs.queued .cs-text i { width: 9px; height: 9px; background: none; border: 2px solid currentColor; border-right-color: transparent; animation: cs-spin .8s linear infinite; }
+@keyframes cs-spin { to { transform: rotate(360deg); } }
 /* What a stage found or made. */
 .ci, .cshot { box-sizing: border-box; border-radius: 10px; font-family: var(--font); background: var(--surface); border: 1px solid var(--soft-2); transition: opacity 250ms ease, border-color 250ms ease, box-shadow 250ms ease; }
 .ci { display: grid; align-content: center; gap: 1px; padding: 0 12px; text-align: left; }
@@ -562,6 +568,12 @@ footer.site { padding-block: 96px 40px; }
 .ci.skip { border-style: dashed; background: transparent; }
 .ci.more { border-style: dashed; background: transparent; cursor: pointer; }
 .ci.more b { color: var(--ok); }
+/* A box still on the way: outline and shimmer only. */
+.ci.ghost { border-style: dashed; border-color: color-mix(in srgb, var(--muted) 40%, transparent); background: transparent; gap: 7px; cursor: default; }
+.ci.ghost em { font-style: normal; color: var(--muted); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ci.ghost .bar { display: block; width: 70%; height: 8px; border-radius: 4px; background: linear-gradient(90deg, var(--soft-2) 25%, var(--soft) 50%, var(--soft-2) 75%); background-size: 200% 100%; animation: ghost-shimmer 1.4s linear infinite; }
+.ci.ghost .bar.short { width: 42%; opacity: .7; }
+@keyframes ghost-shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
 .cshot { display: flex; align-items: center; gap: 10px; padding: 4px 10px 4px 4px; border-color: color-mix(in srgb, var(--ok) 55%, transparent); }
 .cshot img { flex: none; background: #fff; width: 68px; height: 40px; object-fit: cover; object-position: top; border-radius: 6px; }
 .cshot span { min-width: 0; color: var(--muted); font: 500 12.5px var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -582,8 +594,8 @@ footer.site { padding-block: 96px 40px; }
 /* New boxes fade in as the run reaches them (opacity and blur only: React Flow measures them while they appear). */
 .cs, .ci, .cshot { animation: node-in 380ms var(--ease-out) both; }
 @keyframes node-in { from { opacity: 0; filter: blur(3px); } }
-@media (prefers-reduced-motion: reduce) { .cs.running .cs-text i, .cs, .ci, .cshot { animation: none; } .flow, .flow .react-flow__node { transition: none; } }
-@media (max-width: 640px) { .flow { height: 620px; } .flow.compact { height: 200px; } }
+@media (prefers-reduced-motion: reduce) { .cs.running .cs-text i, .cs.fetch .cs-text i, .cs, .ci, .cshot, .ci.ghost .bar { animation: none; } .cs.queued .cs-text i { animation-duration: 2.4s; } .flow .react-flow__node { transition: none; } }
+@media (max-width: 640px) { .flow { height: 620px; } }
 
 /* ---------- Hero demo: the run as one chain on a 1280 × 600 stage, animated with anime.js (lib/hero-flow.ts) ---------- */
 /* No card: the flow sits on the page background, on a dotted grid like React Flow's. Every side and corner fades

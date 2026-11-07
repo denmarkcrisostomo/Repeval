@@ -19,16 +19,19 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { LoadedReport, ReportTest } from '@/lib/report-client';
 import { STEPS } from '@/lib/steps';
-import type { Progress, RunStep } from '@/lib/types';
+import type { Progress, RunPhase, RunStep } from '@/lib/types';
 
 // The run as one chain (React Flow, MIT), like the hero demo: each stage is a box in the line; it fans out to
 // what it found or made, and those join into the next stage.
-//   Sandbox → files → Analyze → pages, endpoints, functions → Plan → Test it · N / Skipped · N
+//   Sandbox → Checkout, Node → Analyze → files → pages, endpoints, functions → Plan → Test it · N / Skipped · N
 //   → Make tests → test files → Run → Passed · N / each possible bug or broken test → Results → screenshots and report
-// Boxes that are alike are grouped; every problem gets its own box. A stage's box appears when it starts. With workflow v3 the run shares a names-only progress file after
-// Analyze, Plan and Generate, so the lanes grow out while it runs; the results follow with the report.
-// Older workflows share nothing, so there the lanes all grow out once the report arrives.
-// When the run is over, the first possible bug is lit up.
+// Sandbox is GitHub's own steps; Repeval's work starts at Analyze, which reads the files. Boxes that are alike are
+// grouped; every problem gets its own box.
+// A stage's status comes from GitHub as soon as it changes, but its boxes come from Repeval's data, which the
+// workflow can only share between steps: with workflow v3, a names-only progress file after Analyze, Plan and
+// Generate, then the report at the end. Older workflows share nothing until the report. So the chain grows left
+// to right as that data arrives, one box at a time, a little behind GitHub, with placeholder boxes saying what
+// the run is doing meanwhile. When the run is over, the first possible bug is lit up.
 
 const STAGES = [
   { id: 'sandbox', name: 'Sandbox', text: 'A fresh, temporary GitHub machine. Your code is copied here, never to Repeval, and the machine is deleted after the run.' },
@@ -68,8 +71,8 @@ interface Model {
   /** What each finished stage's box says, for the stages the data covers so far. */
   done: Partial<Record<StageId, string>>;
   hasBug: boolean;
-  /** How far the data reaches, on the same 0..1 scale as the reveal: Understand, Plan, Make tests or everything. */
-  level: number;
+  /** Which pieces of data this is built from: the progress file's stages, or the report (all of them). */
+  has: { found: boolean; plan: boolean; tests: boolean; report: boolean };
 }
 
 const plural = (n: number, one: string, many = one + 's') => `${n} ${n === 1 ? one : many}`;
@@ -215,11 +218,13 @@ function modelOf(progress: Progress | null, report: LoadedReport | null): Model 
     load,
     done,
     hasBug: !!summary?.['possible-bug'],
-    level: report ? 1 : testsKnown ? SLICES.make[1] : planKnown ? SLICES.plan[1] : SLICES.understand[1],
+    has: { found: true, plan: planKnown, tests: testsKnown, report: !!report },
   };
 }
 
 /* ---------- run state → what each stage shows ---------- */
+
+const finishedStep = (state?: RunStep['state']) => !!state && state !== 'waiting' && state !== 'running';
 
 function stageStatus(st: (typeof STAGES)[number], steps: RunStep[], done: boolean): StageStatus {
   const states = st.steps.map((s) => steps.find((x) => x.key === s.key)?.state ?? 'waiting');
@@ -229,33 +234,53 @@ function stageStatus(st: (typeof STAGES)[number], steps: RunStep[], done: boolea
   return done ? (states.includes('passed') ? 'passed' : 'skipped') : 'running';
 }
 
-// After the run, the lanes grow out one stage after another over REVEAL_MS. Each stage gets a slice.
-const REVEAL_MS = 4200;
-const SLICES: Record<StageId, [number, number]> = {
-  sandbox: [0, 0.1],
-  understand: [0.1, 0.3],
-  plan: [0.3, 0.45],
-  make: [0.45, 0.58],
-  run: [0.58, 0.85],
-  results: [0.85, 1],
+const STEP_MS = 110; // boxes are added one by one at this pace
+const clockOf = (sec: number) => {
+  const t = Math.max(0, Math.floor(sec));
+  return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
 };
-const progress = (id: StageId, t: number) => {
-  const [a, b] = SLICES[id];
-  return t < a ? -1 : t >= b ? 1 : (t - a) / (b - a);
-};
-const shown = (f: number, i: number, n: number) => f >= 1 || (f >= 0 && i < Math.ceil(f * n));
 
+/* ---------- layout: the chain, in columns ---------- */
 
-/* ---------- layout: the chain ---------- */
-
-const SW = 210; // stage box
+// Each column is a fan of boxes. Most stages have one; Analyze has two: the files it read, then what it found in
+// them, each file joined to its finds.
+//   data: the piece of data that fills it. waiting: what its placeholders say while that piece is on the way.
+//   ghosts: how many placeholders, when the column's size is known (Sandbox is always its two steps).
+type Piece = 'sandbox' | 'found' | 'plan' | 'tests' | 'report';
+const COLS: { stage: number; data: Piece; waiting?: string; ghosts?: number }[] = [
+  { stage: 0, data: 'sandbox', waiting: 'getting the machine ready', ghosts: 2 },
+  { stage: 1, data: 'found', waiting: 'getting the file list' },
+  { stage: 1, data: 'found' },
+  { stage: 2, data: 'plan', waiting: 'choosing what to test' },
+  { stage: 3, data: 'tests', waiting: 'writing test files' },
+  { stage: 4, data: 'report', waiting: 'getting the results' },
+  { stage: 5, data: 'report', waiting: 'getting the report' },
+];
+const SW = 230; // stage box: wide enough for "waiting for a machine · 12:34"
 const SH = 72;
 const IW = 220; // a fan's boxes
 const IH = 50;
 const GAP = 60; // their spacing
-const PITCH = 700; // from one stage to the next
-const stageX = (i: number) => i * PITCH;
-const fanX = (i: number) => stageX(i) + SW + 150;
+const OUT = 150; // stage to its first column
+const BETWEEN = 150; // column to column
+const INTO = 130; // last column to the next stage
+const SX: number[] = [];
+const CX: number[] = [];
+{
+  let x = 0;
+  STAGES.forEach((_, i) => {
+    SX[i] = x;
+    x += SW + OUT;
+    COLS.forEach((c, j) => {
+      if (c.stage !== i) return;
+      CX[j] = x;
+      x += IW + BETWEEN;
+    });
+    x += INTO - BETWEEN;
+  });
+}
+const lastCol = (i: number) => COLS.reduce((n, c, j) => (c.stage === i ? j : n), -1);
+const firstCol = (i: number) => COLS.findIndex((c) => c.stage === i);
 const LIMIT = 12; // a longer fan folds behind "+N more"
 
 type ND = {
@@ -264,7 +289,7 @@ type ND = {
   sub?: string;
   noteTitle?: string;
   info?: string;
-  status?: StageStatus;
+  status?: StageStatus | 'queued' | 'fetch';
   name?: string;
   text?: string;
   src?: string | null;
@@ -278,97 +303,205 @@ interface Built {
   nodes: FNode[];
   edges: FEdge[];
   lanesOf: Record<string, Set<string>>;
-  latest: number;
+  /** Every box the data has so far, in the order they are added. */
+  order: string[];
+  /** The column the camera looks at: the one being filled, or the newest stage's last one. */
+  focus: number;
+  /** That column has nothing on screen yet, so the camera centres on its stage alone. */
+  bare: boolean;
+  /** Every box is in and the report is here. */
+  complete: boolean;
   firstBug: string | null;
 }
 
 // What a stage found or made: [id, title, sub, look, lanes, note, screenshot]
 type Item = [string, string, string, string, string[], string, (string | null)?];
 
-function build(model: Model | null, steps: RunStep[], done: boolean, t: number, expanded: boolean): Built {
+interface BuildInput {
+  model: Model | null;
+  steps: RunStep[];
+  done: boolean;
+  phase: RunPhase;
+  /** Seconds the run has waited for a machine. */
+  waited: number;
+  /** No more data is coming: whatever has not arrived never will. */
+  final: boolean;
+  /** Boxes added so far; null shows everything at once. */
+  revealed: Set<string> | null;
+  expanded: { files?: boolean; found?: boolean };
+}
+
+function build({ model, steps, done, phase, waited, final, revealed, expanded }: BuildInput): Built {
   const nodes: FNode[] = [];
   const edges: FEdge[] = [];
   const lanesOf: Record<string, Set<string>> = {};
+  const isIn = (id: string) => !revealed || revealed.has(id);
+  const stateOf = (key: string) => steps.find((x) => x.key === key)?.state;
   const status = STAGES.map((st) => stageStatus(st, steps, done));
+  const got: Record<Piece, boolean> = {
+    sandbox: STAGES[0].steps.every((s) => finishedStep(stateOf(s.key))),
+    found: !!model?.has.found,
+    plan: !!model?.has.plan,
+    tests: !!model?.has.tests,
+    report: !!model?.has.report,
+  };
+  const lanes = model?.lanes ?? [];
+  const ids = (ls: Lane[]) => ls.map((l) => l.id);
+  const cols: Item[][] = COLS.map(() => []);
+
+  // Sandbox's boxes are GitHub's own steps, shown as each one finishes.
+  const every = ids(lanes);
+  for (const [key, title, sub, info] of [
+    ['checkout', 'Checkout', 'repo copied', 'GitHub copied your repo onto the sandbox. Repeval never receives your code.'],
+    ['node', 'Node 22', 'installed', 'Node.js 22 is installed on the sandbox, so your project can run there.'],
+  ]) {
+    const state = stateOf(key);
+    if (finishedStep(state)) cols[0].push(['sb:' + key, title, state === 'failed' ? 'failed' : state === 'skipped' ? 'skipped' : sub, state === 'failed' ? 'bug' : 'passed', every, info]);
+  }
+  if (model) {
+    const fold = (all: Item[], open: boolean | undefined, id: string) => {
+      const keep = all.length > LIMIT && !open ? all.slice(0, LIMIT - 1) : all;
+      if (keep.length < all.length)
+        keep.push([id, `＋${all.length - keep.length} more`, 'tap to show them all', 'more', [...new Set(all.slice(keep.length).flatMap((x) => x[4]))], '']);
+      return keep;
+    };
+    cols[1] = fold(
+      model.files.map((f): Item => {
+        const ls = lanes.filter((l) => l.source === f);
+        return ['file:' + f, f, `${plural(ls.length, 'thing')} found`, 'file', ids(ls), 'Read on the sandbox. Each line leads to what Repeval found in this file.'];
+      }),
+      expanded.files,
+      'more:files',
+    );
+    cols[2] = fold(
+      lanes.map((l): Item => ['found:' + l.id, l.label, l.kind, 'found', [l.id], `Found in ${l.source}.`]),
+      expanded.found,
+      'more:found',
+    );
+  }
+  if (model?.has.plan) {
+    const toTest = lanes.filter((l) => !l.skip);
+    const skipped = lanes.filter((l) => l.skip);
+    if (toTest.length) {
+      const fw = [...new Set(toTest.map((l) => l.framework))].join(' and ');
+      cols[3].push(['plan:test', `Test it · ${toTest.length}`, fw, 'passed', ids(toTest), `Planned: Repeval can test these ${toTest.length} without AI, with ${fw}.`]);
+    }
+    const loads = model.load;
+    if (skipped.length || loads) {
+      const n = skipped.length + (loads ? Number(loads.label.split(' ')[0]) || 1 : 0);
+      const why = skipped.map((l) => `${l.label}: ${l.skip}`).concat(loads ? [`${loads.label}: ${loads.sub}`] : []);
+      cols[3].push(['plan:skip', `Skipped · ${n}`, 'with the reason for each', 'skip', ids(skipped).concat(loads ? loads.from : []), why.join('. ') + '.']);
+    }
+  }
+  if (model?.has.tests)
+    for (const tf of model.tests) {
+      const covered = lanes.filter((l) => l.test === tf);
+      const pw = tf.endsWith('.spec.ts');
+      cols[4].push(['test:' + tf, tf, `${plural(covered.length, 'test')} · ${pw ? 'Playwright' : 'Vitest'}`, 'test passed', ids(covered),
+        pw ? 'Playwright: opens each page or calls each endpoint and checks it works.' : 'Vitest: loads the file and checks its exports.']);
+    }
+  if (model?.has.report) {
+    const results = lanes.filter((l) => l.result);
+    const passed = results.filter((l) => l.result === 'passed');
+    if (passed.length) cols[5].push(['res:pass', `Passed · ${passed.length}`, 'no errors', 'passed', ids(passed), passed.map((l) => `${l.label}: ${l.resultText}`).join('. ') + '.']);
+    for (const l of results.filter((x) => x.result !== 'passed'))
+      cols[5].push(['res:' + l.id, l.result === 'bug' ? 'Possible bug' : 'Broken test', `${l.label}: ${l.resultText}`, l.result === 'bug' ? 'bug' : 'broken', [l.id], l.resultInfo ?? '']);
+    for (const l of results.filter((x) => x.shot))
+      cols[6].push(['shot:' + l.id, l.label, '', l.result === 'bug' ? 'bug' : 'passed', [l.id], `Screenshots of ${l.label} at desktop and phone width.`, l.shot]);
+    cols[6].push(['report', 'Report', model.done.run ?? '', model.hasBug ? 'bug' : 'passed', ids(lanes.filter((l) => !l.skip)), 'Every result, every screenshot and the test files to keep, saved in your repo for 7 days.']);
+  }
+
+  // The order the boxes are added in, and the first one still to come: the camera waits there.
+  const order = cols.flatMap((c) => c.map((x) => x[0]));
+  const colOf = new Map(cols.flatMap((c, j) => c.map((x) => [x[0], j] as const)));
+  const next = order.find((id) => !isIn(id));
+
+  // The chain only grows left to right: a stage appears once every box before it is in, even if GitHub has
+  // already started it. Data that is never coming (final) counts as in, with nothing to show.
+  const colIn = (j: number) => (got[COLS[j].data] || final) && cols[j].every((x) => isIn(x[0]));
+  const stageIn = (i: number) => COLS.every((c, j) => c.stage !== i || colIn(j));
+  const shown: boolean[] = [];
+  STAGES.forEach((_, i) => (shown[i] = i === 0 || (status[i] !== 'waiting' && shown[i - 1] && stageIn(i - 1))));
+  const now = status.reduce((n, x, i) => (x !== 'waiting' ? i : n), -1); // where the run really is
+  const doing = (i: number) => STAGES[i].steps.find((s) => stateOf(s.key) === 'running')?.doing ?? 'starting';
+  const ahead = (j: number) => {
+    const i = COLS[j].stage;
+    if (now <= i || done) return COLS[j].waiting;
+    return status[now] === 'running' ? `${STAGES[now].name}: ${doing(now)}` : `${STAGES[now].name} done`;
+  };
   let latest = 0;
   STAGES.forEach((st, i) => {
-    if (status[i] === 'waiting') return;
+    if (!shown[i]) return;
     latest = i;
-    const running = st.steps.find((s) => steps.find((x) => x.key === s.key)?.state === 'running');
-    const text = status[i] === 'running' ? (running?.doing ?? 'starting') : status[i] === 'skipped' ? 'skipped' : (model?.done[st.id] ?? 'done');
-    nodes.push({ id: 'h:' + st.id, type: 'stage', position: { x: stageX(i), y: -SH / 2 }, data: { name: st.name, status: status[i], text, info: st.text }, draggable: false, connectable: false });
+    let state: ND['status'] = status[i];
+    let text: string;
+    if (state === 'waiting') {
+      // Before any step starts, GitHub is still finding a machine: Sandbox waits, with a spinner and a clock.
+      state = 'queued';
+      text = phase === 'queued' ? `waiting for a machine · ${clockOf(waited)}` : 'starting the job';
+    } else if (state === 'running') text = doing(i);
+    else if (state === 'skipped') text = 'skipped';
+    // Done, but none of its boxes are in yet: it stays neutral, so its colour (a possible bug in red) never shows
+    // before the boxes that explain it. It takes its colour with its first box.
+    else if (i === 0 && state === 'passed') text = 'ready'; // Sandbox: GitHub's own steps are all it needs
+    else if (cols[firstCol(i)].some((x) => isIn(x[0])) || (final && stageIn(i))) text = model?.done[st.id] ?? (state === 'bug' ? 'failed' : 'done');
+    else {
+      state = 'fetch';
+      text = 'done, getting details';
+    }
+    nodes.push({ id: 'h:' + st.id, type: 'stage', position: { x: SX[i], y: -SH / 2 }, data: { name: st.name, status: state, text, info: st.text }, draggable: false, connectable: false });
   });
-  if (!model) return { nodes, edges, lanesOf, latest, firstBug: null };
 
-  const F = Object.fromEntries(STAGES.map((st) => [st.id, progress(st.id, t)])) as Record<StageId, number>;
-  const { lanes } = model;
-  const idx = new Map(lanes.map((l, i) => [l.id, i]));
-  const at = (f: number, l: Lane) => shown(f, idx.get(l.id)!, lanes.length);
-  const ids = (ls: Lane[]) => ls.map((l) => l.id);
-  const fans: Item[][] = [[], [], [], [], [], []];
-
-  model.files.forEach((f, i) => {
-    if (shown(F.sandbox, i, model.files.length))
-      fans[0].push(['file:' + f, f, f === 'your app' ? 'source files' : 'source file', 'file', ids(lanes.filter((l) => l.source === f)), 'Read from your repo on the GitHub machine, where its pages, endpoints and functions were found.']);
-  });
-  const found = lanes.filter((l) => at(F.understand, l));
-  const keep = found.length > LIMIT && !expanded ? found.slice(0, LIMIT - 1) : found;
-  keep.forEach((l) => fans[1].push(['found:' + l.id, l.label, l.kind, 'found', [l.id], `Found in ${l.source}.`]));
-  if (keep.length < found.length) fans[1].push(['more', `＋${found.length - keep.length} more`, 'tap to show them all', 'more', ids(found.slice(keep.length)), '']);
-
-  const planned = lanes.filter((l) => at(F.plan, l));
-  const toTest = planned.filter((l) => !l.skip);
-  const skipped = planned.filter((l) => l.skip);
-  const loads = model.load && F.plan >= 1 ? model.load : null;
-  if (toTest.length) {
-    const fw = [...new Set(toTest.map((l) => l.framework))].join(' and ');
-    fans[2].push(['plan:test', `Test it · ${toTest.length}`, fw, 'passed', ids(toTest), `Planned: Repeval can test these ${toTest.length} without AI, with ${fw}.`]);
-  }
-  if (skipped.length || loads) {
-    const n = skipped.length + (loads ? Number(loads.label.split(' ')[0]) || 1 : 0);
-    const why = skipped.map((l) => `${l.label}: ${l.skip}`).concat(loads ? [`${loads.label}: ${loads.sub}`] : []);
-    fans[2].push(['plan:skip', `Skipped · ${n}`, 'with the reason for each', 'skip', ids(skipped).concat(loads ? loads.from : []), why.join('. ') + '.']);
-  }
-  model.tests.forEach((tf, i) => {
-    if (!shown(F.make, i, model.tests.length)) return;
-    const covered = lanes.filter((l) => l.test === tf);
-    const pw = tf.endsWith('.spec.ts');
-    fans[3].push(['test:' + tf, tf, `${plural(covered.length, 'test')} · ${pw ? 'Playwright' : 'Vitest'}`, 'test passed', ids(covered),
-      pw ? 'Playwright: opens each page or calls each endpoint and checks it works.' : 'Vitest: loads the file and checks its exports.']);
-  });
-  const results = lanes.filter((l) => l.result && at(F.run, l));
-  const passed = results.filter((l) => l.result === 'passed');
-  if (passed.length) fans[4].push(['res:pass', `Passed · ${passed.length}`, 'no errors', 'passed', ids(passed), passed.map((l) => `${l.label}: ${l.resultText}`).join('. ') + '.']);
-  results
-    .filter((l) => l.result !== 'passed')
-    .forEach((l) => fans[4].push(['res:' + l.id, l.result === 'bug' ? 'Possible bug' : 'Broken test', `${l.label}: ${l.resultText}`, l.result === 'bug' ? 'bug' : 'broken', [l.id], l.resultInfo ?? '']));
-  if (F.results >= 0) {
-    results.filter((l) => l.shot).forEach((l) => fans[5].push(['shot:' + l.id, l.label, '', l.result === 'bug' ? 'bug' : 'passed', [l.id], `Screenshots of ${l.label} at desktop and phone width.`, l.shot]));
-    if (F.results >= 1)
-      fans[5].push(['report', 'Report', model.done.run ?? '', model.hasBug ? 'bug' : 'passed', ids(lanes.filter((l) => !l.skip)), 'Every result, every screenshot and the test files to keep, saved in your repo for 7 days.']);
-  }
-
-  fans.forEach((fan, i) => {
+  const line = (id: string, source: string, target: string, tone: string, ls: string[], animated = false) =>
+    edges.push({ id, source, target, animated, data: { tone, lanes: ls } });
+  const visible = cols.map((c) => c.filter((x) => isIn(x[0])));
+  const filled: boolean[] = []; // columns with any box on screen, placeholders included
+  COLS.forEach((c, j) => {
+    const i = c.stage;
+    if (!shown[i] || status[i] === 'waiting' || status[i] === 'skipped') return;
+    const fan = visible[j];
+    const first = j === firstCol(i); // fed by the stage, or by the column before it
+    const into = j === lastCol(i) && STAGES[i + 1] && shown[i + 1] ? 'h:' + STAGES[i + 1].id : null;
+    // This column's data is not here yet: placeholder boxes, saying what the run is doing meanwhile.
+    if (!fan.length && !got[c.data] && !final) {
+      if (!first) return;
+      const n = c.ghosts ?? 3;
+      const say = Math.floor((n - 1) / 2);
+      filled[j] = true;
+      for (let k = 0; k < n; k++) {
+        const gid = `ghost:${j}:${k}`;
+        lanesOf[gid] = new Set();
+        nodes.push({ id: gid, type: 'ghost', position: { x: CX[j], y: (k - (n - 1) / 2) * GAP - IH / 2 }, data: { text: k === say ? ahead(j) : undefined }, draggable: false, connectable: false, selectable: false });
+        line(`out:${gid}`, 'h:' + STAGES[i].id, gid, 'wait', [], true);
+      }
+      return;
+    }
+    if (fan.length) filled[j] = true;
     const top = -((fan.length - 1) * GAP) / 2 - IH / 2;
-    fan.forEach(([id, title, sub, look, ls, info, src], j) => {
+    fan.forEach(([id, title, sub, look, ls, info, src], k) => {
       lanesOf[id] = new Set(ls);
       const lane = id.startsWith('res:') && id !== 'res:pass' ? lanes.find((l) => 'res:' + l.id === id) : null;
       nodes.push({
         id,
         type: src !== undefined ? 'shot' : look === 'more' ? 'more' : 'item',
-        position: { x: fanX(i), y: top + j * GAP },
+        position: { x: CX[j], y: top + k * GAP },
         data: { title, sub, look, info, src, noteTitle: lane ? `${title} on ${lane.label}` : title },
         draggable: false,
         connectable: false,
       });
       const tone = look.includes('bug') ? 'bug' : look === 'skip' ? 'skip' : 'done';
-      if (status[i] !== 'waiting') edges.push({ id: `out:${id}`, source: 'h:' + STAGES[i].id, target: id, data: { tone, lanes: ls } });
-      if (STAGES[i + 1] && status[i + 1] !== 'waiting' && look !== 'skip' && look !== 'more')
-        edges.push({ id: `in:${id}`, source: id, target: 'h:' + STAGES[i + 1].id, data: { tone: tone === 'bug' ? 'bug' : 'done', lanes: ls } });
+      if (first) line(`out:${id}`, 'h:' + STAGES[i].id, id, tone, ls);
+      // From each box in the column before that shares a lane with this one: a file to what was found in it.
+      else for (const p of visible[j - 1]) if (p[4].some((l) => ls.includes(l))) line(`via:${p[0]}>${id}`, p[0], id, tone, ls);
+      if (into && look !== 'skip' && look !== 'more') line(`in:${id}`, id, into, tone === 'bug' ? 'bug' : 'done', ls);
     });
   });
-  const firstBug = fans[4].find((f) => f[3] === 'bug') ?? fans[4].find((f) => f[3] === 'broken');
-  return { nodes, edges, lanesOf, latest, firstBug: firstBug ? firstBug[0] : null };
+  const firstBug = visible[5].find((f) => f[3] === 'bug') ?? visible[5].find((f) => f[3] === 'broken');
+  // The camera looks at the column being filled, or else the newest stage's last column with anything in it
+  // (placeholders included). With none, it looks at that stage alone.
+  let focus = next ? colOf.get(next)! : lastCol(latest);
+  if (!next) while (focus > firstCol(latest) && !filled[focus]) focus--;
+  return { nodes, edges, lanesOf, order, focus, bare: !filled[focus], complete: got.report && !next, firstBug: firstBug ? firstBug[0] : null };
 }
 
 /* ---------- boxes ---------- */
@@ -413,10 +546,18 @@ const nodeTypes = {
       <span>{data.title}</span>
     </div>
   ),
+  // A box still on the way: a faded outline with a shimmer, and in one of them, what it waits for.
+  ghost: ({ data }: NodeProps<FNode>) => (
+    <div className="ci ghost" style={{ width: IW, height: IH }} aria-hidden="true">
+      {sides()}
+      {data.text ? <em>{data.text}…</em> : <i className="bar" />}
+      <i className="bar short" />
+    </div>
+  ),
 };
 
 // Lines take the theme's own colours, so they change with light and dark.
-const LINE: Record<string, string> = { done: 'var(--ok)', bug: 'var(--bug)', skip: 'var(--muted)' };
+const LINE: Record<string, string> = { done: 'var(--ok)', bug: 'var(--bug)', skip: 'var(--muted)', wait: 'var(--muted)' };
 const NOTE = (
   <>
     <b>Tap a box</b> to follow that page, endpoint or function through the run. Drag to look around.
@@ -430,7 +571,7 @@ const ICON_EXIT = 'M4 14h6v6M20 10h-6V4M10 14l-6 6M14 10l6-6';
 function lit(id: string, lanesOf: Built['lanesOf']) {
   const want = lanesOf[id];
   if (!want) return null;
-  const on = new Set<string>();
+  const on = new Set<string>([id]);
   for (const [box, ls] of Object.entries(lanesOf)) for (const l of ls) if (want.has(l)) on.add(box);
   return on;
 }
@@ -443,21 +584,27 @@ export interface RunFlowProps {
   /** Names-only progress from workflow v3, while the run is going. */
   progress: Progress | null;
   report: LoadedReport | null;
-  /** Grow the chain stage by stage as the data arrives, instead of showing it all at once. */
+  /** Add the boxes one by one as the data arrives, instead of showing them all at once. */
   reveal: boolean;
+  phase?: RunPhase;
+  /** Seconds the run has waited for a machine, while queued. */
+  waited?: number;
+  /** No more data is coming (the report is here, or there won't be one). Defaults to `done`. */
+  final?: boolean;
 }
 
-export default function RunFlow({ id, steps, done, progress, report, reveal }: RunFlowProps) {
+export default function RunFlow({ id, steps, done, progress, report, reveal, phase = done ? 'done' : 'running', waited = 0, final = done }: RunFlowProps) {
   const model = useMemo(() => modelOf(progress, report), [progress, report]);
   const wrap = useRef<HTMLDivElement>(null);
   const inst = useRef<ReactFlowInstance<FNode, FEdge> | null>(null);
-  const [t, setT] = useState(reveal ? 0 : 1);
-  const tRef = useRef(t);
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState<{ files?: boolean; found?: boolean }>({});
   const [selected, setSelected] = useState<string | null>(null);
   const [note, setNote] = useState<{ title: string; text: string } | null>(null);
   const [full, setFull] = useState(false);
   const autoPicked = useRef(false);
+  // Watched live, boxes are added one at a time; otherwise they are all there at once (null).
+  const revealed = useRef<Set<string> | null>(reveal ? new Set() : null);
+  const [added, setAdded] = useState(0);
   // React Flow takes each box's size from the node objects it is handed, and hides a box until it knows
   // its size. The diagram is rebuilt on every update, so the sizes it measured are kept here and handed
   // back; otherwise boxes would vanish and re-measure each time, and stay hidden while a run keeps updating.
@@ -466,34 +613,42 @@ export default function RunFlow({ id, steps, done, progress, report, reveal }: R
     for (const c of changes) if (c.type === 'dimensions' && c.dimensions) sizes.current.set(c.id, c.dimensions);
   };
 
-  // Grow the chain up to where the data reaches, at a steady pace: each new progress file or the report
-  // moves the goal further, and the diagram catches up stage by stage.
-  const goal = model?.level ?? 0;
+  const g = useMemo(
+    () => build({ model, steps, done, phase, waited, final, revealed: revealed.current, expanded }),
+    // `added` stands for the revealed set, which changes in place.
+    [model, steps, done, phase, waited, final, expanded, added],
+  );
+  const order = useRef(g.order);
+  order.current = g.order;
+
+  // Add the next box every STEP_MS, in order, until the diagram has everything the data holds.
   useEffect(() => {
-    if (tRef.current >= goal) return;
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      tRef.current = goal;
-      return setT(goal);
-    }
-    let last = performance.now();
-    const iv = setInterval(() => {
-      const now = performance.now();
-      const next = Math.min(goal, tRef.current + (now - last) / REVEAL_MS);
-      last = now;
-      tRef.current = next;
-      setT(next);
-      if (next >= goal) clearInterval(iv);
-    }, 70);
-    return () => clearInterval(iv);
-  }, [goal]);
+    if (!reveal) return;
+    const t = setInterval(() => {
+      const seen = revealed.current!;
+      const next = order.current.find((x) => !seen.has(x));
+      if (!next) return;
+      if (matchMedia('(prefers-reduced-motion: reduce)').matches) order.current.forEach((x) => seen.add(x));
+      else seen.add(next);
+      setAdded((n) => n + 1);
+    }, STEP_MS);
+    return () => clearInterval(t);
+  }, [reveal]);
+  // Boxes unfolded from "+N more" appear at once, and the camera stays where it is.
+  useEffect(() => {
+    const seen = revealed.current;
+    if (!seen) return;
+    for (const x of order.current) if ((expanded.files && x.startsWith('file:')) || (expanded.found && x.startsWith('found:'))) seen.add(x);
+    setAdded((n) => n + 1);
+  }, [expanded]);
 
-  const g = useMemo(() => build(model, steps, done, Math.min(t, goal), expanded), [model, steps, done, t, goal, expanded]);
-  const finished = !!report && done && t >= 1;
-  const view = useRef({ latest: 0, finished: false });
-  view.current = { latest: g.latest, finished };
+  const finished = !!report && done && g.complete;
+  const view = useRef({ focus: 0, bare: true, finished: false });
+  view.current = { focus: g.focus, bare: g.bare, finished };
 
-  // The camera follows the newest stage and its fan, about three stages wide. When the run is over it rests
-  // on the end of the chain: the results, Results, and what it saved.
+  // The camera follows the column being filled, with its stage, or else the newest stage and its fan. A stage
+  // with nothing in its fan yet (Sandbox while GitHub finds a machine) sits in the middle on its own. When the
+  // run is over it rests on the end of the chain: the results, Results, and what it saved.
   const frame = (animate: boolean) => {
     const i = inst.current;
     const w = wrap.current?.clientWidth ?? 0;
@@ -501,9 +656,9 @@ export default function RunFlow({ id, steps, done, progress, report, reveal }: R
     if (!i || !w) return;
     const duration = animate && !matchMedia('(prefers-reduced-motion: reduce)').matches ? 600 : 0;
     const z = Math.max(0.35, Math.min(0.85, h / 820, w / 1500));
-    const { latest, finished: end } = view.current;
-    const from = end ? stageX(4) : stageX(latest);
-    const to = end ? fanX(5) + IW : fanX(latest) + IW;
+    const { focus, bare, finished: end } = view.current;
+    const from = end ? SX[4] : SX[COLS[focus].stage];
+    const to = end ? CX[COLS.length - 1] + IW : bare ? from + SW : CX[focus] + IW;
     i.setViewport({ x: w / 2 - (z * (from + to)) / 2, y: h / 2, zoom: z }, { duration });
   };
   const frameRef = useRef(frame);
@@ -530,9 +685,9 @@ export default function RunFlow({ id, steps, done, progress, report, reveal }: R
   useEffect(() => {
     const tm = setTimeout(() => frameRef.current(true), 60);
     return () => clearTimeout(tm);
-  }, [g.latest, finished]);
+  }, [g.focus, g.bare, finished]);
 
-  // When the run is over and the chain has grown, light up the first possible bug (or broken test).
+  // When the run is over and every box is in, light up the first possible bug (or broken test).
   useEffect(() => {
     if (!finished || !g.firstBug || autoPicked.current) return;
     autoPicked.current = true;
@@ -545,24 +700,25 @@ export default function RunFlow({ id, steps, done, progress, report, reveal }: R
   const want = selected ? g.lanesOf[selected] : null;
   const nodes = g.nodes.map((n) => {
     const measured = sizes.current.get(n.id);
-    const data = lane && n.type !== 'stage' ? { ...n.data, dim: !lane.has(n.id), sel: n.id === selected } : n.data;
+    const data = lane && n.type !== 'stage' && n.type !== 'ghost' ? { ...n.data, dim: !lane.has(n.id), sel: n.id === selected } : n.data;
     return { ...n, data, ...(measured ? { measured } : {}) };
   });
   const edges = g.edges.map((e) => {
     const tone = e.data!.tone;
     const color = LINE[tone] ?? LINE.done;
-    const off = !!want && !e.data!.lanes.some((l) => want.has(l));
+    const off = tone === 'wait' ? !!want : !!want && !e.data!.lanes.some((l) => want.has(l));
     return {
       ...e,
       type: 'default',
       focusable: false,
-      style: { stroke: color, strokeWidth: 1.7, strokeDasharray: tone === 'skip' ? '5 5' : undefined, opacity: off ? 0.12 : 1, transition: 'opacity 200ms ease' },
+      style: { stroke: color, strokeWidth: 1.7, strokeDasharray: tone === 'skip' ? '5 5' : undefined, opacity: off ? 0.12 : tone === 'wait' ? 0.5 : 1, transition: 'opacity 200ms ease' },
       markerEnd: { type: MarkerType.ArrowClosed, color, width: 14, height: 14 },
     };
   });
 
   const choose = (n: FNode) => {
-    if (n.type === 'more') return setExpanded(true);
+    if (n.type === 'ghost') return;
+    if (n.type === 'more') return setExpanded((x) => ({ ...x, [n.id === 'more:files' ? 'files' : 'found']: true }));
     if (n.type === 'stage') {
       setSelected(null);
       return setNote({ title: n.data.name ?? '', text: n.data.info ?? '' });
@@ -580,8 +736,7 @@ export default function RunFlow({ id, steps, done, progress, report, reveal }: R
 
   return (
     <div className="flow-wrap">
-      {/* Short while only the stages are known, full height once the chain grows. */}
-      <div className={'flow' + (model ? '' : ' compact')} ref={wrap} data-ui aria-label="The run as a flow diagram">
+      <div className="flow" ref={wrap} data-ui aria-label="The run as a flow diagram">
         <ReactFlow<FNode, FEdge>
           id={id}
           nodes={nodes}
