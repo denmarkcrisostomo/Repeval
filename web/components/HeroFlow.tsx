@@ -17,7 +17,7 @@ export function HeroFlow({ audio }: { audio?: string }) {
     <div className="demo-video hero-video">
       <div className="film" ref={film} />
       <p className="sr">
-        A run of the demo shop: Repeval collects 2 source files, finds 5 pages and 3 API endpoints, plans 6 tests, writes 2 test files, runs them and
+        A run of the demo shop: GitHub sets up a sandbox, then Repeval reads 2 source files, finds 5 pages and 3 API endpoints in them, plans 6 tests, writes 2 test files, runs them and
         finds a possible bug on /cart, then saves screenshots and a report.
       </p>
     </div>
