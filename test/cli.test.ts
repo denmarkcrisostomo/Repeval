@@ -82,3 +82,33 @@ describe('repeval CLI on express-app', () => {
     expect(existsSync(join(dir, 'repeval-report', 'cards', 'summary.png'))).toBe(true);
   });
 });
+
+describe('repeval CLI on a monorepo', () => {
+  it('resolves each app own aliases, stubs server-only, skips test helpers and fills in env values', () => {
+    const dir = copyExample('monorepo');
+    const run = repeval(['run', '.'], dir);
+    expect(run.code, run.out).toBe(0);
+    const r = results(dir);
+    expect(r.summary, run.out).toMatchObject({ passed: 22, 'possible-bug': 0, broken: 0, skipped: 0 });
+    const targets = r.tests.map((t: { target?: string }) => t.target ?? '');
+    expect(targets).toContain('unit:apps/web/lib/price.ts#priceLabel'); // "@/lib/format" from apps/web
+    expect(targets).toContain('unit:apps/api/src/invoice.ts#totalCents'); // "@api/money" from apps/api
+    expect(targets).toContain('unit:apps/web/lib/server-data.ts#serverGreeting'); // imports server-only
+    expect(targets).toContain('unit:apps/web/lib/mail.ts#fromAddress'); // env checked on load
+    expect(targets.some((t: string) => t.includes('packages/test'))).toBe(false);
+    // The values were made up for the test run only: nothing was written to the repo.
+    expect(existsSync(join(dir, '.env'))).toBe(false);
+  });
+
+  it('lists a file whose environment check still fails as needing environment variables, not as a bug', () => {
+    const dir = copyExample('monorepo');
+    writeFileSync(join(dir, 'apps', 'api', 'src', 'secrets.ts'), "if (!globalThis.process.env.npm_x) throw new Error('Invalid environment variables');\nexport const ok = () => true;\n");
+    const run = repeval(['run', '.'], dir);
+    expect(run.code, run.out).toBe(0);
+    const r = results(dir);
+    expect(r.summary['possible-bug']).toBe(0);
+    const t = r.tests.find((x: { target?: string }) => x.target === 'unit:apps/api/src/secrets.ts#ok');
+    expect(t.status).toBe('skipped');
+    expect(t.note).toBe('needs environment variables');
+  });
+});

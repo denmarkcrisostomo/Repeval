@@ -1,0 +1,6 @@
+{
+  "name": "example-monorepo",
+  "private": true,
+  "type": "module",
+  "workspaces": ["apps/*", "packages/*"]
+}
