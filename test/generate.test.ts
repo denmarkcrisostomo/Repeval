@@ -84,7 +84,7 @@ describe('vitest config for Next.js projects', () => {
     const { contents } = generateUnit(a, buildPlan(a), getPaths(root));
     const config = [...contents.entries()].find(([k]) => k.endsWith('vitest.config.mjs'))![1];
     // Relative to .repeval/, so the config also works after the tests are committed.
-    expect(config).toContain('{"@":"../src"}');
+    expect(config).toContain('{"dir":"..","paths":[["@/*",["../src/*"]]]}');
     expect(config).not.toContain(root);
     expect(config).toContain("jsx: { runtime: 'automatic' }");
   });
