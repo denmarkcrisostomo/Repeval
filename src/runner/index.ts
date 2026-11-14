@@ -5,7 +5,7 @@ import { readJson, writeJson, type Paths } from '../core/paths.js';
 import type { Analysis, GeneratedManifest, Plan, RunResults, SuiteRun, TestResult } from '../core/types.js';
 import { slugForRoute } from '../adapters/playwright.js';
 import { ensureBrowser, ensureProjectDeps, linkRunnerPackages, packageDir, withPackageManager } from './deps.js';
-import { exec } from './exec.js';
+import { exec, stripAnsi } from './exec.js';
 import { parsePlaywright, parseVitest, type PlaywrightJson, type VitestJson } from './parse.js';
 
 export interface RunOptions {
@@ -102,13 +102,33 @@ export async function runTests(a: Analysis, plan: Plan, manifest: GeneratedManif
       if (!json || (parsed.length === 0 && json.errors?.length)) {
         const why = json?.errors?.map((e) => e.message).join('\n') ?? res.tail;
         const appFailed = /webServer|Timed out waiting|exited early/i.test(why);
+        // What the app itself printed before it stopped, such as "pnpm: not found": the real reason.
+        const said = stripAnsi(res.tail)
+          .split('\n')
+          .filter((l) => l.includes('[WebServer]'))
+          .slice(-3)
+          .join('\n');
         suites.push({
           kind: 'e2e',
           framework: 'playwright',
           status: 'error',
-          message: appFailed ? `The app did not start with "${start}".\n${why}` : why,
+          message: appFailed ? `The app did not start with "${start}".\n${why}${said ? `\n${said}` : ''}` : why,
           durationMs: Date.now() - started,
         });
+        // The pages and endpoints it was going to test are listed as not tested, so the report still shows them.
+        for (const t of plan.targets) {
+          if (!t.enabled || (t.type !== 'e2e' && t.type !== 'api')) continue;
+          tests.push({
+            id: t.id,
+            suite: t.type,
+            title: t.label,
+            target: t.id,
+            status: 'skipped',
+            note: appFailed ? 'not tested: the app did not start' : 'not tested: Playwright could not run',
+            durationMs: 0,
+            screenshots: [],
+          });
+        }
       } else {
         let n = 0;
         for (const t of parsed) {
