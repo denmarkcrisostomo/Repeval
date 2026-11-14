@@ -4,7 +4,7 @@ import { log } from '../core/log.js';
 import { readJson, writeJson, type Paths } from '../core/paths.js';
 import type { Analysis, GeneratedManifest, Plan, RunResults, SuiteRun, TestResult } from '../core/types.js';
 import { slugForRoute } from '../adapters/playwright.js';
-import { ensureBrowser, ensureProjectDeps, linkRunnerPackages, packageDir } from './deps.js';
+import { ensureBrowser, ensureProjectDeps, linkRunnerPackages, packageDir, withPackageManager } from './deps.js';
 import { exec } from './exec.js';
 import { parsePlaywright, parseVitest, type PlaywrightJson, type VitestJson } from './parse.js';
 
@@ -77,7 +77,9 @@ export async function runTests(a: Analysis, plan: Plan, manifest: GeneratedManif
     if (!browser.ok) {
       suites.push({ kind: 'e2e', framework: 'playwright', status: 'error', message: browser.message, durationMs: 0 });
     } else {
-      log.info(`Running E2E tests with Playwright (starting the app with "${a.boot.command}")`);
+      // The same package manager fallback as the install: "pnpm dev" becomes "npx --yes pnpm dev" without pnpm.
+      const start = a.boot.command ? await withPackageManager(a.boot.command, p.root) : null;
+      log.info(`Running E2E tests with Playwright (starting the app with "${start}")`);
       const shots = join(p.out, 'shots');
       const jsonFile = join(p.results, 'e2e.json');
       const cli = join(packageDir('@playwright/test'), 'cli.js');
@@ -87,7 +89,7 @@ export async function runTests(a: Analysis, plan: Plan, manifest: GeneratedManif
         env: {
           ...process.env,
           REPEVAL_ROOT: p.root,
-          REPEVAL_START: a.boot.command ?? '',
+          REPEVAL_START: start ?? '',
           REPEVAL_PORT: String(a.boot.port ?? 3000),
           REPEVAL_SHOTS: shots,
           REPEVAL_E2E_JSON: jsonFile,
@@ -104,7 +106,7 @@ export async function runTests(a: Analysis, plan: Plan, manifest: GeneratedManif
           kind: 'e2e',
           framework: 'playwright',
           status: 'error',
-          message: appFailed ? `The app did not start with "${a.boot.command}".\n${why}` : why,
+          message: appFailed ? `The app did not start with "${start}".\n${why}` : why,
           durationMs: Date.now() - started,
         });
       } else {

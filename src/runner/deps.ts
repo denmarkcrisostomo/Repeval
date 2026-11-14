@@ -52,15 +52,23 @@ function installCommand(root: string, pm: StackInfo['packageManager']): string {
   }
 }
 
+/**
+ * GitHub's runners (and many machines) have npm but not pnpm, yarn or bun. A command that starts with one of
+ * those runs through `npx --yes` when it isn't installed, so installing and starting the app both work.
+ */
+export async function withPackageManager(cmd: string, cwd: string): Promise<string> {
+  const tool = cmd.trim().split(/\s+/)[0];
+  if (!['pnpm', 'yarn', 'bun'].includes(tool)) return cmd;
+  return (await exec(tool, ['--version'], { cwd })).code === 0 ? cmd : `npx --yes ${cmd}`;
+}
+
 /** Install the project's own dependencies if node_modules is missing (fresh CI checkout). */
 export async function ensureProjectDeps(p: Paths, stack: StackInfo): Promise<{ ok: boolean; message?: string }> {
   if (!stack.hasPackageJson || existsSync(join(p.root, 'node_modules'))) return { ok: true };
   const pkg = JSON.parse(readFileSync(join(p.root, 'package.json'), 'utf8'));
   const depCount = Object.keys({ ...pkg.dependencies, ...pkg.devDependencies }).length;
   if (depCount === 0) return { ok: true };
-  let cmd = installCommand(p.root, stack.packageManager);
-  const tool = cmd.split(' ')[0];
-  if (tool !== 'npm' && (await exec(tool, ['--version'], { cwd: p.root })).code !== 0) cmd = `npx --yes ${cmd}`;
+  const cmd = await withPackageManager(installCommand(p.root, stack.packageManager), p.root);
   log.info(`Installing project dependencies: ${cmd}`);
   // Under `npm publish --dry-run` (or any npm script run with --dry-run), npm passes
   // npm_config_dry_run to child processes, and the install would then do nothing.
