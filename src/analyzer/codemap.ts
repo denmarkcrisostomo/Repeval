@@ -48,7 +48,8 @@ export interface CodeMap {
   skippedFiles: SkippedFile[];
 }
 
-export function mapCode(root: string, files: string[]): CodeMap {
+/** onFile: called after each file is read, with how many are done and how many there are. */
+export function mapCode(root: string, files: string[], onFile?: (done: number, total: number) => void): CodeMap {
   const project = new Project({
     compilerOptions: {
       allowJs: true,
@@ -70,7 +71,10 @@ export function mapCode(root: string, files: string[]): CodeMap {
   const classes: CodeMap['classes'] = [];
   const skippedFiles: SkippedFile[] = [];
 
-  for (const file of files.slice(0, MAX_FILES)) {
+  const todo = files.slice(0, MAX_FILES);
+  let done = 0;
+  for (const file of todo) {
+    onFile?.(done++, todo.length);
     if (FRAMEWORK_FILE_RE.some((re) => re.test(file))) {
       skippedFiles.push({ file, reason: 'framework file (page, layout or route), covered by E2E tests' });
       continue;

@@ -6,11 +6,18 @@ import { listFiles } from './files.js';
 import { findRoutes } from './routes.js';
 import { detectStack } from './stack.js';
 
-export function analyze(root: string): Analysis {
+/** Progress for the CLI's indicator: the files found, then each file as its code is read. */
+export interface AnalyzeProgress {
+  files?(source: number, tests: number): void;
+  code?(done: number, total: number): void;
+}
+
+export function analyze(root: string, progress: AnalyzeProgress = {}): Analysis {
   const started = Date.now();
   const stack = detectStack(root);
   const files = listFiles(root);
-  const code = mapCode(root, files.source);
+  progress.files?.(files.source.length, files.tests.length);
+  const code = mapCode(root, files.source, progress.code);
   const routes = findRoutes(root, stack, files.all);
   const boot = detectBoot(root, stack, files.source);
   return {

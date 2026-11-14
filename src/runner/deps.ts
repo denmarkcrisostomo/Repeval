@@ -70,11 +70,12 @@ export async function ensureProjectDeps(p: Paths, stack: StackInfo): Promise<{ o
   if (depCount === 0) return { ok: true };
   const cmd = await withPackageManager(installCommand(p.root, stack.packageManager), p.root);
   log.info(`Installing project dependencies: ${cmd}`);
+  const task = log.task('Installing');
   // Under `npm publish --dry-run` (or any npm script run with --dry-run), npm passes
   // npm_config_dry_run to child processes, and the install would then do nothing.
   const env = { ...process.env };
   for (const k of Object.keys(env)) if (k.toLowerCase() === 'npm_config_dry_run') delete env[k];
-  const res = await exec(cmd, [], { cwd: p.root, shell: true, echo: false, env });
+  const res = await exec(cmd, [], { cwd: p.root, shell: true, echo: false, env }).finally(() => task.done());
   if (res.code !== 0) return { ok: false, message: `"${cmd}" failed:\n${res.tail}` };
   log.ok('Dependencies installed');
   return { ok: true };
@@ -88,6 +89,7 @@ export async function ensureBrowser(cwd: string): Promise<{ ok: boolean; message
   const args = [cli, 'install', 'chromium'];
   if (process.env.CI && process.platform === 'linux') args.push('--with-deps');
   log.info('Installing the Chromium browser for E2E tests (one time)');
-  const res = await exec(process.execPath, args, { cwd, echo: false });
+  const task = log.task('Downloading Chromium');
+  const res = await exec(process.execPath, args, { cwd, echo: false }).finally(() => task.done());
   return res.code === 0 ? { ok: true } : { ok: false, message: `Browser install failed:\n${res.tail}` };
 }

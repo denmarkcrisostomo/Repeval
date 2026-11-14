@@ -28,9 +28,20 @@ function paths(root: string, opts: CommonOptions): Paths {
 export function doAnalyze(root: string, opts: CommonOptions = {}): Analysis {
   const p = paths(root, opts);
   log.step('Collect files');
-  const a = analyze(p.root);
-  log.item('Scanned', `${a.sourceFiles} source files, ${a.testFiles.length} existing tests`);
-  log.step('Understand the repo');
+  let task = log.task('Looking for source files');
+  const fmt = (n: number) => n.toLocaleString('en-US');
+  const a = analyze(p.root, {
+    files(source, tests) {
+      task.done();
+      log.item('Scanned', `${fmt(source)} source files, ${fmt(tests)} existing tests`);
+      log.step('Understand the repo');
+      task = log.task('Reading code');
+    },
+    code(done, total) {
+      task.update(`${fmt(done)} / ${fmt(total)} files`);
+    },
+  });
+  task.done();
   log.item('Stack', [a.stack.language, ...a.stack.frameworks.map((f) => f.label)].join(', '));
   log.item('Functions', `${a.functions.length} exported, ${a.functions.filter((f) => f.callable).length} callable with samples`);
   log.item('Pages', a.pages.map((x) => x.route).join('  ') || 'none');
@@ -124,8 +135,10 @@ export async function doTest(root: string, opts: TestOptions = {}): Promise<{ re
   });
 
   log.step('Results');
+  const saving = log.task('Saving the report');
   const data = writeReport(a, plan, manifest, results, p);
   if (opts.card !== false) await captureSummaryCard(p).catch(() => undefined);
+  saving.done();
   const s = data.summary;
   log.info(
     `${pc.green(`${s.passed} passed`)}  ${pc.red(`${s['possible-bug']} possible bug${s['possible-bug'] === 1 ? '' : 's'}`)}  ${pc.yellow(`${s.broken} broken test${s.broken === 1 ? '' : 's'}`)}  ${pc.dim(`${s.skipped} skipped`)}`,
