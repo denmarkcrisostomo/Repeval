@@ -38,7 +38,6 @@ export async function runTests(a: Analysis, plan: Plan, manifest: GeneratedManif
 
   /* ---------- Unit tests: Vitest ---------- */
   if (hasUnit) {
-    log.info('Running unit tests with Vitest');
     const started = Date.now();
     // Files that check their environment when they load can't be tested without values. Every variable the
     // code needs gets a made-up one that passes its rule (never your real .env), and SKIP_ENV_VALIDATION=1 turns
@@ -46,6 +45,7 @@ export async function runTests(a: Analysis, plan: Plan, manifest: GeneratedManif
     const fake = placeholderEnv(p.root);
     const n = Object.keys(fake.env).length;
     if (n) log.info(`Made-up values for ${n} environment variable${n === 1 ? '' : 's'} (${fake.fromSchema} from env schemas, ${fake.fromExample} from .env.example, ${fake.fromCode} from the code)`);
+    log.info('Running unit tests with Vitest');
     const vitestBin = join(packageDir('vitest'), 'vitest.mjs');
     const vitest = (extra: Record<string, string>, only: string[] = []) =>
       exec(process.execPath, [vitestBin, 'run', '--config', p.vitestConfig, '--root', p.root, ...only], {
