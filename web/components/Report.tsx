@@ -119,7 +119,7 @@ export function Report({ owner, repo, run, save }: { owner: string; repo: string
       {head}
       {setup && <SetupNotice problem={setup} githubUrl={run.htmlUrl} />}
       <div className="kpis">
-        <div className="kpi ok"><b>{summary.passed}</b><span>passed</span></div>
+        <div className="kpi ok"><b>{summary.passed}</b><span>{summary.passed === 1 ? 'test' : 'tests'} passed</span></div>
         <div className="kpi bug"><b>{summary['possible-bug']}</b><span>possible bug{summary['possible-bug'] === 1 ? '' : 's'}</span></div>
         <div className="kpi run"><b>{summary.broken}</b><span>broken tests</span></div>
         <div className="kpi"><b>{summary.skipped}</b><span>skipped</span></div>

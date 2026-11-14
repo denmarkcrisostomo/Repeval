@@ -81,6 +81,29 @@ interface Model {
 }
 
 const plural = (n: number, one: string, many = one + 's') => `${n} ${n === 1 ? one : many}`;
+
+// What the counts count. The flow counts pages, endpoints and functions (one path through the chain each);
+// the numbers under it count individual tests, and one function can have several. So the flow says what it
+// counted: "3 pages · 2 API · 3 functions", or "Passed · 15 functions" when they are all of one kind.
+const KINDS: [Group, string][] = [
+  ['Pages', 'page'],
+  ['API', 'API'],
+  ['Code', 'function'],
+];
+const kindsOf = (ls: Lane[]) => KINDS.map(([g, one]) => [ls.filter((l) => l.group === g).length, one] as const).filter(([n]) => n);
+const counted = (n: number, one: string) => (one === 'API' ? `${n} API` : plural(n, one));
+/** The Passed box's title and line: the kind in the title when there is one kind, else a breakdown under it. */
+const passedBox = (ls: Lane[]): [string, string] => {
+  const k = kindsOf(ls);
+  return k.length === 1 ? [`Passed · ${counted(ls.length, k[0][1])}`, 'no errors'] : [`Passed · ${ls.length}`, k.map(([n, one]) => counted(n, one)).join(' · ')];
+};
+/** The Run box's line: "15 functions passed", then any problems; the kind is left out when it won't fit the box. */
+const runLine = (ls: Lane[], problems: string[]) => {
+  const k = kindsOf(ls);
+  const tail = problems.map((x) => ` · ${x}`).join('');
+  const full = k.length === 1 ? `${counted(ls.length, k[0][1])} passed${tail}` : '';
+  return full && full.length <= 30 ? full : `${ls.length} passed${tail}`;
+};
 const base = (p: string) => p.split('/').pop() ?? p;
 // "dynamic route: needs example parameters (AI mode)" → "needs example parameters"
 const short = (note?: string) => (note ?? 'skipped').replace(/\s*\([^)]*\)\s*$/, '').split(': ').pop()!;
@@ -220,11 +243,11 @@ function modelOf(progress: Progress | null, report: LoadedReport | null): Model 
   const summary = report?.results.summary;
   if (summary && report) {
     // Counted like the Run stage's boxes: pages, endpoints and functions, not individual tests.
-    const ok = lanes.filter((l) => l.result === 'passed').length;
+    const ok = lanes.filter((l) => l.result === 'passed');
     const bad = lanes.filter((l) => l.result === 'bug').length;
     const broken = lanes.filter((l) => l.result === 'broken').length;
-    const why = setup && (setup.command ? "app didn't start" : "pages not tested");
-    done.run = [`${ok} passed`, bad && plural(bad, 'possible bug'), broken && plural(broken, 'broken test'), why].filter(Boolean).join(' · ');
+    const why = setup && (setup.command ? "app didn't start" : 'pages not tested');
+    done.run = runLine(ok, [bad && plural(bad, 'possible bug'), broken && plural(broken, 'broken test'), why].filter((x): x is string => !!x));
     done.results = `${plural(report.screenshotCount, 'screenshot')}, 1 report`;
   }
   return {
@@ -420,7 +443,7 @@ function build({ model, steps, done, phase, waited, final, revealed, expanded }:
   if (model?.has.report) {
     const results = lanes.filter((l) => l.result);
     const passed = results.filter((l) => l.result === 'passed');
-    if (passed.length) cols[5].push(['res:pass', `Passed · ${passed.length}`, 'no errors', 'passed', ids(passed), passed.map((l) => `${l.label}: ${l.resultText}`).join('. ') + '.']);
+    if (passed.length) cols[5].push(['res:pass', ...passedBox(passed), 'passed', ids(passed), passed.map((l) => `${l.label}: ${l.resultText}`).join('. ') + '.']);
     for (const l of results.filter((x) => x.result !== 'passed'))
       cols[5].push(['res:' + l.id, l.result === 'bug' ? 'Possible bug' : 'Broken test', `${l.label}: ${l.resultText}`, l.result === 'bug' ? 'bug' : 'broken', [l.id], l.resultInfo ?? '']);
     if (model.setup) {

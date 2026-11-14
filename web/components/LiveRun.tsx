@@ -162,7 +162,7 @@ export function LiveRun({ owner, repo, initial, pollMs }: { owner: string; repo:
           <div className={'result-bar' + (done ? ' show' : '')} aria-live="polite">
             {summary ? (
               <>
-                <div className="num ok"><b>{summary.passed}</b><span>passed</span></div>
+                <div className="num ok"><b>{summary.passed}</b><span>{summary.passed === 1 ? 'test' : 'tests'} passed</span></div>
                 <div className="num bug"><b>{bugs}</b><span>possible bug{bugs === 1 ? '' : 's'}</span></div>
                 <div className="num"><b>{summary.skipped}</b><span>skipped</span></div>
                 <div className="num"><b>{report?.screenshotCount ?? 0}</b><span>screenshots</span></div>
