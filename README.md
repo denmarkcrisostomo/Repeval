@@ -36,6 +36,16 @@ Collect files → Understand the repo → Plan → Make tests → Run → Result
 - **Pages (Playwright):** opens every page and checks that it returns status < 400, shows content and has no browser errors. Each page is screenshotted at desktop and mobile width.
 - **API (Playwright):** checks that every simple `GET` endpoint answers without a 5xx.
 
+### Monorepos and environment variables
+
+- **Each app's own aliases:** every `tsconfig.json` in the repo is read, and an import like `@/lib/format` is resolved with the tsconfig nearest the file that imports it. Next.js's `server-only` and `client-only` are replaced by empty modules in tests.
+- **Test helpers are left alone:** code in `test/`, `tests/`, `e2e/`, `fixtures/` and `mocks/` folders only runs inside your own test setup, so Repeval doesn't write tests for it.
+- **Made-up environment values:** many apps check their environment when a file loads (`@t3-oss/env`, envalid, a zod schema over `process.env`). Repeval never has your real values, so for the unit tests it makes up a safe one for every variable the code needs:
+  - built to pass the variable's rule in your env schema (an enum's first option, a URL, an email, a `sk_` prefix, a minimum length…), or taken from `.env.example`, or guessed from the name (`DATABASE_URL` gets `postgres://…@localhost`);
+  - variables named only in an error message (`PAYMENT_SECRET is missing`) get one too, and that file runs again.
+
+  It also sets `SKIP_ENV_VALIDATION=1`, which `@t3-oss/env` setups commonly use to skip their checks. Your own `.env` files are never read, a variable that is already set is never changed, and the values only exist during the test run. A file that still can't load is listed as **Skipped · needs environment variables**, not as a bug.
+
 ### How results are sorted
 
 | Status | Meaning |
@@ -43,7 +53,7 @@ Collect files → Understand the repo → Plan → Make tests → Run → Result
 | **Passed** | The test passed. |
 | **Possible bug** | A valid test failed: a page threw an error, an endpoint returned 500, or a function's result changed. Repeval reports these and never weakens the test. |
 | **Broken test** | The generated test itself couldn't run (for example, an import failed). |
-| **Skipped** | Templates can't cover this yet (dynamic routes, POST bodies, React components, load tests). The reason is shown. |
+| **Skipped** | Templates can't cover this yet (dynamic routes, POST bodies, React components, load tests), or the file needs environment variables Repeval couldn't fill in. The reason is shown. |
 
 ## Commands
 
