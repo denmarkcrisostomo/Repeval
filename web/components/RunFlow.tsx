@@ -19,6 +19,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { LoadedReport, ReportTest } from '@/lib/report-client';
 import { STEPS } from '@/lib/steps';
+import { setupProblem, setupProblemText, type SetupProblem } from '@/lib/setup-problem';
 import type { Progress, RunPhase, RunStep } from '@/lib/types';
 
 // The run as one chain (React Flow, MIT), like the hero demo: each stage is a box in the line; it fans out to
@@ -58,6 +59,8 @@ interface Lane {
   test?: string;
   skip?: string;
   skipInfo?: string;
+  /** Planned and written, but never run: the app didn't start, for example. */
+  notRun?: boolean;
   result?: Result;
   resultText?: string;
   resultInfo?: string;
@@ -71,6 +74,8 @@ interface Model {
   /** What each finished stage's box says, for the stages the data covers so far. */
   done: Partial<Record<StageId, string>>;
   hasBug: boolean;
+  /** What kept the run from testing the pages, such as the app not starting. */
+  setup: SetupProblem | null;
   /** Which pieces of data this is built from: the progress file's stages, or the report (all of them). */
   has: { found: boolean; plan: boolean; tests: boolean; report: boolean };
 }
@@ -154,7 +159,11 @@ function lanesFromReport(report: LoadedReport) {
       label: group === 'Code' ? worst.title.split(' › ')[0] : worst.target ? id.replace(/^(page|api):/, '') : worst.title,
       kind: group === 'Pages' ? 'page' : group === 'API' ? 'endpoint' : 'function',
     };
-    if (worst.status === 'skipped') skipLane(lane, worst.note);
+    if (worst.status === 'skipped' && /^not tested/.test(worst.note ?? '')) {
+      // Planned and written, but the run never got to it (Repeval 0.1.5+ lists these when the app doesn't start).
+      lane.notRun = true;
+      lane.test = generated.find((g) => g === (group === 'API' ? 'api.spec.ts' : 'pages.spec.ts'));
+    } else if (worst.status === 'skipped') skipLane(lane, worst.note);
     else {
       lane.test = group === 'Code' ? unitFile(source) : base(worst.file ?? 'tests');
       setResult(lane, worst, list.find((t) => t.note)?.note);
@@ -173,6 +182,12 @@ function lanesFromReport(report: LoadedReport) {
 function modelOf(progress: Progress | null, report: LoadedReport | null): Model | null {
   if (!report && !progress) return null;
   const { lanes, loads } = report ? lanesFromReport(report) : lanesFromProgress(progress!);
+  const setup = setupProblem(report?.results);
+  // Older reports leave out the pages and endpoints that never ran. Watched live, the progress file still has them.
+  if (report && setup && progress) {
+    const have = new Set(lanes.map((l) => l.id));
+    for (const l of lanesFromProgress(progress).lanes) if (!have.has(l.id) && l.group !== 'Code' && !l.skip) lanes.push({ ...l, notRun: true });
+  }
   // Same order as the progress file, so nothing reshuffles when the report arrives. Each source file's
   // functions stay together, so their lines don't cross.
   const order: Group[] = ['Pages', 'API', 'Code'];
@@ -208,7 +223,8 @@ function modelOf(progress: Progress | null, report: LoadedReport | null): Model 
     const ok = lanes.filter((l) => l.result === 'passed').length;
     const bad = lanes.filter((l) => l.result === 'bug').length;
     const broken = lanes.filter((l) => l.result === 'broken').length;
-    done.run = [`${ok} passed`, bad && plural(bad, 'possible bug'), broken && plural(broken, 'broken test')].filter(Boolean).join(' · ');
+    const why = setup && (setup.command ? "app didn't start" : "pages not tested");
+    done.run = [`${ok} passed`, bad && plural(bad, 'possible bug'), broken && plural(broken, 'broken test'), why].filter(Boolean).join(' · ');
     done.results = `${plural(report.screenshotCount, 'screenshot')}, 1 report`;
   }
   return {
@@ -218,6 +234,7 @@ function modelOf(progress: Progress | null, report: LoadedReport | null): Model 
     load,
     done,
     hasBug: !!summary?.['possible-bug'],
+    setup,
     has: { found: true, plan: planKnown, tests: testsKnown, report: !!report },
   };
 }
@@ -289,7 +306,7 @@ type ND = {
   sub?: string;
   noteTitle?: string;
   info?: string;
-  status?: StageStatus | 'queued' | 'fetch';
+  status?: StageStatus | 'queued' | 'fetch' | 'warn';
   name?: string;
   text?: string;
   src?: string | null;
@@ -406,9 +423,13 @@ function build({ model, steps, done, phase, waited, final, revealed, expanded }:
     if (passed.length) cols[5].push(['res:pass', `Passed · ${passed.length}`, 'no errors', 'passed', ids(passed), passed.map((l) => `${l.label}: ${l.resultText}`).join('. ') + '.']);
     for (const l of results.filter((x) => x.result !== 'passed'))
       cols[5].push(['res:' + l.id, l.result === 'bug' ? 'Possible bug' : 'Broken test', `${l.label}: ${l.resultText}`, l.result === 'bug' ? 'bug' : 'broken', [l.id], l.resultInfo ?? '']);
+    if (model.setup) {
+      const s = model.setup;
+      cols[5].push(['res:setup', s.title, s.command ? `"${s.command}": ${s.reason}` : s.reason, 'broken', ids(lanes.filter((l) => l.notRun)), setupProblemText(s)]);
+    }
     for (const l of results.filter((x) => x.shot))
       cols[6].push(['shot:' + l.id, l.label, '', l.result === 'bug' ? 'bug' : 'passed', [l.id], `Screenshots of ${l.label} at desktop and phone width.`, l.shot]);
-    cols[6].push(['report', 'Report', model.done.run ?? '', model.hasBug ? 'bug' : 'passed', ids(lanes.filter((l) => !l.skip)), 'Every result, every screenshot and the test files to keep, saved in your repo for 7 days.']);
+    cols[6].push(['report', 'Report', model.done.run ?? '', model.hasBug ? 'bug' : model.setup ? 'broken' : 'passed', ids(lanes.filter((l) => !l.skip)), 'Every result, every screenshot and the test files to keep, saved in your repo for 7 days.']);
   }
 
   // The order the boxes are added in, and the first one still to come: the camera waits there.
@@ -444,7 +465,11 @@ function build({ model, steps, done, phase, waited, final, revealed, expanded }:
     // Done, but none of its boxes are in yet: it stays neutral, so its colour (a possible bug in red) never shows
     // before the boxes that explain it. It takes its colour with its first box.
     else if (i === 0 && state === 'passed') text = 'ready'; // Sandbox: GitHub's own steps are all it needs
-    else if (cols[firstCol(i)].some((x) => isIn(x[0])) || (final && stageIn(i))) text = model?.done[st.id] ?? (state === 'bug' ? 'failed' : 'done');
+    else if (cols[firstCol(i)].some((x) => isIn(x[0])) || (final && stageIn(i))) {
+      text = model?.done[st.id] ?? (state === 'bug' ? 'failed' : 'done');
+      // The app not starting is a setup problem, not a bug in the app: Run turns amber, not red.
+      if (st.id === 'run' && model?.setup && !model.hasBug) state = 'warn';
+    }
     else {
       state = 'fetch';
       text = 'done, getting details';
@@ -489,11 +514,11 @@ function build({ model, steps, done, phase, waited, final, revealed, expanded }:
         draggable: false,
         connectable: false,
       });
-      const tone = look.includes('bug') ? 'bug' : look === 'skip' ? 'skip' : 'done';
+      const tone = look.includes('bug') ? 'bug' : look === 'broken' ? 'warn' : look === 'skip' ? 'skip' : 'done';
       if (first) line(`out:${id}`, 'h:' + STAGES[i].id, id, tone, ls);
       // From each box in the column before that shares a lane with this one: a file to what was found in it.
       else for (const p of visible[j - 1]) if (p[4].some((l) => ls.includes(l))) line(`via:${p[0]}>${id}`, p[0], id, tone, ls);
-      if (into && look !== 'skip' && look !== 'more') line(`in:${id}`, id, into, tone === 'bug' ? 'bug' : 'done', ls);
+      if (into && look !== 'skip' && look !== 'more') line(`in:${id}`, id, into, tone === 'bug' || tone === 'warn' ? tone : 'done', ls);
     });
   });
   const firstBug = visible[5].find((f) => f[3] === 'bug') ?? visible[5].find((f) => f[3] === 'broken');
@@ -557,7 +582,7 @@ const nodeTypes = {
 };
 
 // Lines take the theme's own colours, so they change with light and dark.
-const LINE: Record<string, string> = { done: 'var(--ok)', bug: 'var(--bug)', skip: 'var(--muted)', wait: 'var(--muted)' };
+const LINE: Record<string, string> = { done: 'var(--ok)', bug: 'var(--bug)', warn: 'var(--run)', skip: 'var(--muted)', wait: 'var(--muted)' };
 const NOTE = (
   <>
     <b>Tap a box</b> to follow that page, endpoint or function through the run. Drag to look around.

@@ -2,10 +2,12 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { loadReport, STATUS_CLASS, STATUS_LABEL, type LoadedReport, type ReportTest } from '@/lib/report-client';
+import { setupProblem } from '@/lib/setup-problem';
 import type { RunStatus } from '@/lib/types';
 import { clock } from '@/lib/time';
 import { testsPullRequestUrl, TESTS_BRANCH } from '@/lib/workflow';
 import { RunFlow } from './RunFlowLazy';
+import { SetupNotice } from './SetupNotice';
 
 const GROUPS: { suite: ReportTest['suite']; label: string }[] = [
   { suite: 'e2e', label: 'Pages' },
@@ -40,6 +42,8 @@ export function Report({ owner, repo, run, save }: { owner: string; repo: string
   const [file, setFile] = useState(0);
   const tabs = useRef<HTMLDivElement>(null);
   const [pill, setPill] = useState({ x: 0, w: 0 });
+  // The app didn't start (or the page tests couldn't run): the pages and API weren't tested.
+  const setup = setupProblem(report?.results);
 
   useEffect(() => {
     loadReport(owner, repo, run.id).then(
@@ -67,10 +71,12 @@ export function Report({ owner, repo, run, save }: { owner: string; repo: string
         </p>
       </div>
       {report && (
-        <span className="verdict" style={report.results.summary['possible-bug'] ? undefined : { background: 'var(--ok-soft)', color: 'var(--ok)' }}>
+        <span className={'verdict' + (report.results.summary['possible-bug'] ? '' : setup ? ' warn' : ' ok')}>
           {report.results.summary['possible-bug']
             ? `${report.results.summary['possible-bug']} possible bug${report.results.summary['possible-bug'] === 1 ? '' : 's'} found`
-            : 'No bugs found'}
+            : setup
+              ? 'Pages not tested'
+              : 'No bugs found'}
         </span>
       )}
     </div>
@@ -111,6 +117,7 @@ export function Report({ owner, repo, run, save }: { owner: string; repo: string
   return (
     <>
       {head}
+      {setup && <SetupNotice problem={setup} githubUrl={run.htmlUrl} />}
       <div className="kpis">
         <div className="kpi ok"><b>{summary.passed}</b><span>passed</span></div>
         <div className="kpi bug"><b>{summary['possible-bug']}</b><span>possible bug{summary['possible-bug'] === 1 ? '' : 's'}</span></div>

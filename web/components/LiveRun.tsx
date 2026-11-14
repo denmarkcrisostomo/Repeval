@@ -3,10 +3,12 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { loadReport, type LoadedReport } from '@/lib/report-client';
+import { setupProblem } from '@/lib/setup-problem';
 import { STEPS } from '@/lib/steps';
 import type { Progress, RunStatus } from '@/lib/types';
 import { clock } from '@/lib/time';
 import { RunFlow } from './RunFlowLazy';
+import { SetupNotice } from './SetupNotice';
 
 /** The live run screen: polls GitHub (through this site's API) and grows the flow as the run goes. */
 export function LiveRun({ owner, repo, initial, pollMs }: { owner: string; repo: string; initial: RunStatus; pollMs: number }) {
@@ -83,6 +85,8 @@ export function LiveRun({ owner, repo, initial, pollMs }: { owner: string; repo:
   const finished = run.steps.filter((s) => s.state !== 'waiting' && s.state !== 'running').length;
   const summary = report?.results.summary;
   const bugs = summary?.['possible-bug'] ?? 0;
+  // The app didn't start (or the page tests couldn't run): the pages and API weren't tested.
+  const setup = setupProblem(report?.results);
   const shots = useMemo(
     () => (report ? report.results.tests.filter((t) => t.suite === 'e2e' && t.screenshots[0]).map((t) => ({ t, src: report.image(t.screenshots[0]) })) : []),
     [report],
@@ -90,7 +94,12 @@ export function LiveRun({ owner, repo, initial, pollMs }: { owner: string; repo:
 
   let pill = { cls: 'run', text: run.phase === 'queued' ? 'Queued' : 'Running' };
   if (done) {
-    if (summary) pill = bugs ? { cls: 'bug', text: `Finished · ${bugs} possible bug${bugs === 1 ? '' : 's'}` } : { cls: 'ok', text: 'Finished · all passed' };
+    if (summary)
+      pill = bugs
+        ? { cls: 'bug', text: `Finished · ${bugs} possible bug${bugs === 1 ? '' : 's'}` }
+        : setup
+          ? { cls: 'warn', text: 'Finished · pages not tested' }
+          : { cls: 'ok', text: 'Finished · all passed' };
     else pill = run.conclusion === 'success' ? { cls: 'ok', text: 'Finished' } : { cls: 'bug', text: run.conclusion === 'cancelled' ? 'Cancelled' : 'Finished with problems' };
   }
 
@@ -101,7 +110,9 @@ export function LiveRun({ owner, repo, initial, pollMs }: { owner: string; repo:
     nowText = current.explain;
   } else if (done) {
     nowStep = 'Finished';
-    if (summary)
+    if (summary && setup && !bugs)
+      nowText = `Your functions were tested, but ${setup.command ? "your app didn't start, so its" : 'the page tests could not run, so your'} pages and API weren't. The notice below says why.`;
+    else if (summary)
       nowText = bugs
         ? `Every page was opened and checked. ${bugs} possible bug${bugs === 1 ? '' : 's'}: open the report to see ${bugs === 1 ? 'it' : 'them'} explained.`
         : `Every page was opened and checked. ${summary.passed} tests passed.`;
@@ -167,12 +178,17 @@ export function LiveRun({ owner, repo, initial, pollMs }: { owner: string; repo:
               <span>No report was saved for this run.{run.htmlUrl && ' Open it on GitHub to see the log.'}</span>
             )}
           </div>
+          {setup && <SetupNotice problem={setup} githubUrl={run.htmlUrl} />}
           <div className="card" style={{ marginTop: 18 }}>
             <h2>Screenshots</h2>
             <div className="shots">
               {shots.length === 0 && (
                 <p className="empty" style={{ gridColumn: '1/-1', padding: '8px 0' }}>
-                  {done ? 'No page screenshots in this run.' : 'Screenshots appear here when the run finishes and its report is saved.'}
+                  {!done
+                    ? 'Screenshots appear here when the run finishes and its report is saved.'
+                    : setup?.command
+                      ? "No page screenshots in this run: the app didn't start."
+                      : 'No page screenshots in this run.'}
                 </p>
               )}
               {shots.map(({ t, src }) => (
