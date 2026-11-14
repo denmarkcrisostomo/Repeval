@@ -1,5 +1,6 @@
 import { stripAnsi } from './exec.js';
 import type { TestResult, TestStatus } from '../core/types.js';
+import { ENV_ERROR_RE, envNamesIn } from './env.js';
 
 /* ---------- Vitest JSON (Jest-compatible) ---------- */
 
@@ -42,13 +43,18 @@ export function parseVitest(json: VitestJson, sourceOf: (testFile: string) => st
     const source = sourceOf(file.name);
     if (file.assertionResults.length === 0 && file.status === 'failed') {
       const message = firstLines(file.message ?? 'Test file failed to load');
+      // The file checks its environment when it loads and a variable is missing: that needs your settings,
+      // it is not a bug. (Repeval fills in made-up values first, so this is what those could not satisfy.)
+      const needsEnv = ENV_ERROR_RE.test(message);
+      const names = envNamesIn(message);
       out.push({
         id: `unit:${source ?? file.name}#load`,
         suite: 'unit',
         title: `${source ?? file.name} loads`,
         file: source,
-        status: classifyUnitFailure(message) === 'broken' ? 'broken' : 'possible-bug',
+        status: needsEnv ? 'skipped' : classifyUnitFailure(message) === 'broken' ? 'broken' : 'possible-bug',
         message,
+        ...(needsEnv ? { note: `needs environment variables${names.length ? `: ${names.join(', ')}` : ''}` } : {}),
         durationMs: 0,
         screenshots: [],
       });

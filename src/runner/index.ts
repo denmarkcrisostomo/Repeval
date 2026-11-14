@@ -1,10 +1,11 @@
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from 'node:fs';
-import { basename, extname, join, resolve } from 'node:path';
+import { basename, extname, join, relative, resolve } from 'node:path';
 import { log } from '../core/log.js';
 import { readJson, writeJson, type Paths } from '../core/paths.js';
 import type { Analysis, GeneratedManifest, Plan, RunResults, SuiteRun, TestResult } from '../core/types.js';
 import { slugForRoute } from '../adapters/playwright.js';
 import { ensureBrowser, ensureProjectDeps, linkRunnerPackages, packageDir, withPackageManager } from './deps.js';
+import { ENV_ERROR_RE, envNamesIn, placeholderEnv, placeholderFor } from './env.js';
 import { exec, stripAnsi } from './exec.js';
 import { parsePlaywright, parseVitest, type PlaywrightJson, type VitestJson } from './parse.js';
 
@@ -39,18 +40,50 @@ export async function runTests(a: Analysis, plan: Plan, manifest: GeneratedManif
   if (hasUnit) {
     log.info('Running unit tests with Vitest');
     const started = Date.now();
+    // Files that check their environment when they load can't be tested without values. Every variable the
+    // code needs gets a made-up one that passes its rule (never your real .env), and SKIP_ENV_VALIDATION=1 turns
+    // off @t3-oss/env-style checks that support it.
+    const fake = placeholderEnv(p.root);
+    const n = Object.keys(fake.env).length;
+    if (n) log.info(`Made-up values for ${n} environment variable${n === 1 ? '' : 's'} (${fake.fromSchema} from env schemas, ${fake.fromExample} from .env.example, ${fake.fromCode} from the code)`);
     const vitestBin = join(packageDir('vitest'), 'vitest.mjs');
-    const res = await exec(process.execPath, [vitestBin, 'run', '--config', p.vitestConfig, '--root', p.root], {
-      cwd: p.root,
-      echo: true,
-      env: {
-        ...process.env,
-        REPEVAL_BASELINES: p.baselines,
-        REPEVAL_EVENTS: p.baselineEvents,
-        REPEVAL_UPDATE: opts.updateBaselines ? '1' : '',
-      },
-    });
-    const json = readJson<VitestJson>(join(p.results, 'unit.json'));
+    const vitest = (extra: Record<string, string>, only: string[] = []) =>
+      exec(process.execPath, [vitestBin, 'run', '--config', p.vitestConfig, '--root', p.root, ...only], {
+        cwd: p.root,
+        echo: true,
+        env: {
+          ...fake.env,
+          ...extra,
+          ...process.env,
+          SKIP_ENV_VALIDATION: process.env.SKIP_ENV_VALIDATION ?? '1',
+          REPEVAL_BASELINES: p.baselines,
+          REPEVAL_EVENTS: p.baselineEvents,
+          REPEVAL_UPDATE: opts.updateBaselines ? '1' : '',
+        },
+      });
+    const res = await vitest({});
+    let json = readJson<VitestJson>(join(p.results, 'unit.json'));
+    // Some names can't be found in the code (built at run time, say), but the error names them:
+    // "PAYMENT_SECRET is missing". Those get made-up values too, and only the files that failed run again.
+    if (json) {
+      const retry = new Map<string, string[]>();
+      for (const f of json.testResults) {
+        if (f.assertionResults.length || f.status !== 'failed' || !ENV_ERROR_RE.test(f.message ?? '')) continue;
+        const names = envNamesIn(f.message ?? '').filter((x) => !(x in fake.env) && process.env[x] === undefined);
+        if (names.length) retry.set(f.name, names);
+      }
+      if (retry.size) {
+        const extra = Object.fromEntries([...retry.values()].flat().map((x) => [x, placeholderFor(x)]));
+        log.info(`Trying again with made-up values for ${Object.keys(extra).join(', ')}`);
+        const first = json;
+        await vitest(extra, [...retry.keys()].map((f) => relative(p.root, f)));
+        const again = readJson<VitestJson>(join(p.results, 'unit.json'));
+        if (again) {
+          const redone = new Map(again.testResults.map((f) => [resolve(f.name), f]));
+          json = { ...first, testResults: first.testResults.map((f) => redone.get(resolve(f.name)) ?? f) };
+        } else json = first;
+      }
+    }
     if (!json) {
       suites.push({ kind: 'unit', framework: 'vitest', status: 'error', message: `Vitest did not produce results:\n${res.tail}`, durationMs: Date.now() - started });
     } else {
@@ -58,7 +91,17 @@ export async function runTests(a: Analysis, plan: Plan, manifest: GeneratedManif
         const f = manifest.files.find((m) => resolve(p.root, m.path) === resolve(testFile));
         return f?.targets[0]?.replace(/^unit:/, '').replace(/#.*$/, '');
       };
-      tests.push(...parseVitest(json, sourceOf));
+      const unit = parseVitest(json, sourceOf);
+      tests.push(...unit);
+      // A file that needs environment variables never loaded, so its functions weren't tested: list them as
+      // skipped with the same reason, so the report still shows them.
+      for (const t of unit) {
+        if (t.status !== 'skipped' || !t.note?.startsWith('needs environment variables') || !t.file) continue;
+        for (const target of plan.targets) {
+          if (!target.enabled || target.type !== 'unit' || !target.id.startsWith(`unit:${t.file}#`)) continue;
+          tests.push({ id: target.id, suite: 'unit', title: target.label, target: target.id, file: t.file, status: 'skipped', note: t.note, durationMs: 0, screenshots: [] });
+        }
+      }
       suites.push({ kind: 'unit', framework: 'vitest', status: 'ran', durationMs: Date.now() - started });
     }
     if (existsSync(p.baselineEvents)) {
