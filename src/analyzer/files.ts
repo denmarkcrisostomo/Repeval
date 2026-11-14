@@ -28,12 +28,15 @@ const MAX_FILE_BYTES = 200_000;
 export interface FileSet {
   /** Every candidate file (code, .svelte, .vue, .html), relative to root. */
   all: string[];
-  /** JS/TS source files that are not tests or configs. */
+  /** JS/TS source files that are not tests, test support or configs. */
   source: string[];
   tests: string[];
 }
 
 const TEST_RE = /(^|\/)(__tests__|__mocks__)\/|\.(test|spec)\.[cm]?[jt]sx?$/;
+// Test support code: helpers, fixtures and mocks for the repo's own tests (a monorepo's packages/test, say).
+// It only runs inside that test setup, so it is not code for Repeval to test, nor a test of its own.
+const SUPPORT_RE = /(^|\/)(tests?|e2e|cypress|fixtures|__fixtures__|mocks)\//;
 const CONFIG_RE = /(^|\/)[^/]*\.config\.[cm]?[jt]s$|(^|\/)\.[^/]*rc\.[cm]?js$/;
 const CODE_RE = /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs)$/;
 
@@ -54,6 +57,6 @@ export function listFiles(root: string): FileSet {
     })
     .sort();
   const tests = all.filter((f) => CODE_RE.test(f) && TEST_RE.test(f));
-  const source = all.filter((f) => CODE_RE.test(f) && !TEST_RE.test(f) && !CONFIG_RE.test(f));
+  const source = all.filter((f) => CODE_RE.test(f) && !TEST_RE.test(f) && !SUPPORT_RE.test(f) && !CONFIG_RE.test(f));
   return { all, source, tests };
 }
